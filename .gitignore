@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+.vscode/
+
+# Local account maintenance scripts
+server/src/createAdmin.ts
+server/src/resetDoctorPassword.ts

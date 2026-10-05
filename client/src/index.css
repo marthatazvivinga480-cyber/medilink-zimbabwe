@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, sans-serif;
+  color: #102c44;
+  background: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #ffffff;
+  color: #102c44;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   MEDILINK GLOBAL SCROLLBARS
+   Visual styling only — scrolling functionality is unchanged
+   ========================================================= */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0fa8b8 #eaf3f5;
+}
+
+/* Chrome, Edge and Safari */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #eaf3f5;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #0fa8b8;
+  border: 2px solid #eaf3f5;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #087f8c;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: #0b6470;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #eaf3f5;
+  border-radius: 999px;
+}
+
+/* Hide scrollbars where we intentionally use custom dropdown scrolling */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-teal px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-dark disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-[#E2EBEF] bg-white px-5 py-3 text-sm font-semibold text-navy transition hover:border-teal hover:text-teal;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-[#E2EBEF] bg-white px-4 py-3 text-sm text-navy outline-none transition placeholder:text-[#8A99A5] focus:border-teal focus:ring-2 focus:ring-teal/10;
+  }
+
+  .card {
+    @apply rounded-2xl border border-[#E2EBEF] bg-white shadow-[0_12px_35px_rgba(11,41,69,0.06)];
+  }
+}
