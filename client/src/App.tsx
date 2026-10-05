@@ -23,6 +23,7 @@ import MyAppointments from "./pages/MyAppointments";
 import MedicalRecords from "./pages/MedicalRecords";
 import Prescriptions from "./pages/Prescriptions";
 import Notifications from "./pages/Notifications";
+import Payments from "./pages/Payments";
 
 import DoctorDashboard from "./pages/DoctorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -159,6 +160,11 @@ export default function App() {
           <Route
             path="/dashboard/patient/notifications"
             element={<Notifications />}
+          />
+
+          <Route
+            path="/dashboard/patient/payments"
+            element={<Payments />}
           />
         </Route>
 

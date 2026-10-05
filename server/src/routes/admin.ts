@@ -83,6 +83,18 @@ const createDoctorSchema = z.object({
     .array(z.string())
     .default(["In-person"]),
 
+  consultationFee: z
+    .number()
+    .min(0)
+    .default(0),
+
+  currency: z
+    .enum([
+      "USD",
+      "ZWG",
+    ])
+    .default("USD"),
+
   isVerified: z
     .boolean()
     .default(false),
@@ -148,6 +160,18 @@ const updateDoctorSchema = z.object({
 
   consultationTypes: z
     .array(z.string())
+    .optional(),
+
+  consultationFee: z
+    .number()
+    .min(0)
+    .optional(),
+
+  currency: z
+    .enum([
+      "USD",
+      "ZWG",
+    ])
     .optional(),
 
   isVerified: z
@@ -571,6 +595,12 @@ router.post(
             consultationTypes:
               data.consultationTypes,
 
+            consultationFee:
+              data.consultationFee,
+
+            currency:
+              data.currency,
+
             isVerified:
               data.isVerified,
           });
@@ -777,6 +807,22 @@ router.put(
       ) {
         doctor.consultationTypes =
           data.consultationTypes;
+      }
+
+      if (
+        data.consultationFee !==
+        undefined
+      ) {
+        doctor.consultationFee =
+          data.consultationFee;
+      }
+
+      if (
+        data.currency !==
+        undefined
+      ) {
+        doctor.currency =
+          data.currency;
       }
 
       if (

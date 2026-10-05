@@ -14,6 +14,7 @@ import prescriptionRoutes from "./routes/prescriptions.js";
 import consultationRoutes from "./routes/consultations.js";
 import verificationRoutes from "./routes/verification.js";
 import notificationRoutes from "./routes/notifications.js";
+import paymentRoutes from "./routes/payments.js";
 import adminRoutes from "./routes/admin.js";
 
 import {
@@ -56,26 +57,37 @@ app.use("/api/auth", authRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/patients", patientRoutes);
+
 app.use(
   "/api/medical-records",
   medicalRecordRoutes
 );
+
 app.use(
   "/api/prescriptions",
   prescriptionRoutes
 );
+
 app.use(
   "/api/consultations",
   consultationRoutes
 );
+
 app.use(
   "/api/verification",
   verificationRoutes
 );
+
 app.use(
   "/api/notifications",
   notificationRoutes
 );
+
+app.use(
+  "/api/payments",
+  paymentRoutes
+);
+
 app.use("/api/admin", adminRoutes);
 
 app.use(notFound);
