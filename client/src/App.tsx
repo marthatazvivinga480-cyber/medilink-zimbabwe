@@ -20,6 +20,9 @@ import Register from "./pages/Register";
 import PatientDashboard from "./pages/PatientDashboard";
 import PatientProfile from "./pages/PatientProfile";
 import MyAppointments from "./pages/MyAppointments";
+import MedicalRecords from "./pages/MedicalRecords";
+import Prescriptions from "./pages/Prescriptions";
+import Notifications from "./pages/Notifications";
 
 import DoctorDashboard from "./pages/DoctorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -141,6 +144,21 @@ export default function App() {
           <Route
             path="/dashboard/patient/appointments"
             element={<MyAppointments />}
+          />
+
+          <Route
+            path="/dashboard/patient/records"
+            element={<MedicalRecords />}
+          />
+
+          <Route
+            path="/dashboard/patient/prescriptions"
+            element={<Prescriptions />}
+          />
+
+          <Route
+            path="/dashboard/patient/notifications"
+            element={<Notifications />}
           />
         </Route>
 

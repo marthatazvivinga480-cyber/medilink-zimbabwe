@@ -6,7 +6,10 @@ import { Appointment } from "../models/Appointment.js";
 import { Patient } from "../models/Patient.js";
 import { Doctor } from "../models/Doctor.js";
 import { DoctorAvailability } from "../models/DoctorAvailability.js";
-import { Notification } from "../models/Notification.js";
+import {
+  Notification,
+  type NotificationType,
+} from "../models/Notification.js";
 
 import {
   requireAuth,
@@ -34,13 +37,24 @@ const rescheduleSchema = z.object({
   endTime: z.string().min(1),
 });
 
+type NotificationInput = {
+  userId:
+    | mongoose.Types.ObjectId
+    | string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+};
+
 function getAppointmentDateTime(
   date: string,
   startTime: string
 ) {
-  const appointmentDateTime = new Date(
-    `${date}T${startTime}:00`
-  );
+  const appointmentDateTime =
+    new Date(
+      `${date}T${startTime}:00`
+    );
 
   if (
     Number.isNaN(
@@ -131,6 +145,26 @@ function doctorCanTransition(
   ].includes(nextStatus);
 }
 
+async function createNotificationSafely(
+  input: NotificationInput
+) {
+  try {
+    await Notification.create({
+      userId: input.userId,
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      link: input.link,
+      isRead: false,
+    });
+  } catch (error) {
+    console.error(
+      "Could not create notification:",
+      error
+    );
+  }
+}
+
 async function releaseAppointmentSlot(
   doctorId: mongoose.Types.ObjectId,
   date: string,
@@ -165,6 +199,11 @@ async function releaseAppointmentSlot(
   await availability.save();
 }
 
+/**
+ * POST /api/appointments
+ *
+ * Patient creates a new appointment.
+ */
 router.post(
   "/",
   requireAuth,
@@ -338,16 +377,24 @@ router.post(
 
       await availability.save();
 
-      await Notification.create({
-        userId:
-          doctor.userId,
+      await createNotificationSafely(
+        {
+          userId:
+            doctor.userId,
 
-        title:
-          "New appointment request",
+          type:
+            "general",
 
-        message:
-          `A patient requested an appointment for ${data.date} at ${data.startTime}.`,
-      });
+          title:
+            "New appointment request",
+
+          message:
+            `A patient requested an appointment for ${data.date} at ${data.startTime}.`,
+
+          link:
+            "/doctor",
+        }
+      );
 
       return res
         .status(201)
@@ -372,6 +419,12 @@ router.post(
   }
 );
 
+/**
+ * GET /api/appointments/mine
+ *
+ * Returns appointments belonging to the
+ * signed-in patient or doctor.
+ */
 router.get(
   "/mine",
   requireAuth,
@@ -476,6 +529,12 @@ router.get(
   }
 );
 
+/**
+ * PATCH /api/appointments/:id/reschedule
+ *
+ * Patient moves an existing future appointment
+ * to another available slot.
+ */
 router.patch(
   "/:id/reschedule",
   requireAuth,
@@ -735,7 +794,8 @@ router.patch(
 
         await appointment.save();
       } catch (error) {
-        newSlot.isBooked = false;
+        newSlot.isBooked =
+          false;
 
         await newAvailability.save();
 
@@ -749,16 +809,24 @@ router.patch(
         oldEndTime
       );
 
-      await Notification.create({
-        userId:
-          doctor.userId,
+      await createNotificationSafely(
+        {
+          userId:
+            doctor.userId,
 
-        title:
-          "Appointment rescheduled",
+          type:
+            "appointment_rescheduled",
 
-        message:
-          `A patient rescheduled an appointment from ${oldDate} at ${oldStartTime} to ${data.date} at ${data.startTime}.`,
-      });
+          title:
+            "Appointment rescheduled",
+
+          message:
+            `A patient rescheduled an appointment from ${oldDate} at ${oldStartTime} to ${data.date} at ${data.startTime}.`,
+
+          link:
+            "/doctor",
+        }
+      );
 
       const populatedAppointment =
         await Appointment.findById(
@@ -801,6 +869,14 @@ router.patch(
   }
 );
 
+/**
+ * PATCH /api/appointments/:id/status
+ *
+ * Doctor can confirm, cancel, complete or mark
+ * an appointment as no-show.
+ *
+ * Patient can cancel their own future appointment.
+ */
 router.patch(
   "/:id/status",
   requireAuth,
@@ -1040,6 +1116,123 @@ router.patch(
           appointment.startTime,
           appointment.endTime
         );
+      }
+
+      if (
+        req.user!.role ===
+        "doctor"
+      ) {
+        const patient =
+          await Patient.findById(
+            appointment.patientId
+          );
+
+        if (patient) {
+          if (
+            status ===
+            "confirmed"
+          ) {
+            await createNotificationSafely(
+              {
+                userId:
+                  patient.userId,
+
+                type:
+                  "appointment_confirmed",
+
+                title:
+                  "Appointment confirmed",
+
+                message:
+                  `Your appointment for ${appointment.date} at ${appointment.startTime} has been confirmed.`,
+
+                link:
+                  "/dashboard/patient/appointments",
+              }
+            );
+          }
+
+          if (
+            status ===
+            "cancelled"
+          ) {
+            await createNotificationSafely(
+              {
+                userId:
+                  patient.userId,
+
+                type:
+                  "appointment_cancelled",
+
+                title:
+                  "Appointment cancelled",
+
+                message:
+                  `Your appointment scheduled for ${appointment.date} at ${appointment.startTime} was cancelled by the doctor.`,
+
+                link:
+                  "/dashboard/patient/appointments",
+              }
+            );
+          }
+
+          if (
+            status ===
+            "no-show"
+          ) {
+            await createNotificationSafely(
+              {
+                userId:
+                  patient.userId,
+
+                type:
+                  "general",
+
+                title:
+                  "Appointment marked as no-show",
+
+                message:
+                  `Your appointment for ${appointment.date} at ${appointment.startTime} was marked as a no-show.`,
+
+                link:
+                  "/dashboard/patient/appointments",
+              }
+            );
+          }
+        }
+      }
+
+      if (
+        req.user!.role ===
+          "patient" &&
+        status ===
+          "cancelled"
+      ) {
+        const doctor =
+          await Doctor.findById(
+            appointment.doctorId
+          );
+
+        if (doctor) {
+          await createNotificationSafely(
+            {
+              userId:
+                doctor.userId,
+
+              type:
+                "appointment_cancelled",
+
+              title:
+                "Appointment cancelled",
+
+              message:
+                `A patient cancelled the appointment scheduled for ${appointment.date} at ${appointment.startTime}.`,
+
+              link:
+                "/doctor",
+            }
+          );
+        }
       }
 
       return res.json({

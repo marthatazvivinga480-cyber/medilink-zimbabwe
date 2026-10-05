@@ -66,6 +66,21 @@ const doctorSchema = new mongoose.Schema(
       default: ["In-person"],
     },
 
+    consultationFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    currency: {
+      type: String,
+      enum: [
+        "USD",
+        "ZWG",
+      ],
+      default: "USD",
+    },
+
     isVerified: {
       type: Boolean,
       default: false,
@@ -76,4 +91,9 @@ const doctorSchema = new mongoose.Schema(
   }
 );
 
-export const Doctor = mongoose.model("Doctor", doctorSchema);
+export const Doctor =
+  mongoose.models.Doctor ||
+  mongoose.model(
+    "Doctor",
+    doctorSchema
+  );

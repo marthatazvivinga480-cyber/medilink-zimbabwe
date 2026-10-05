@@ -3,10 +3,9 @@ import {
   useMemo,
   useState,
 } from "react";
-
 import { Link } from "react-router-dom";
-
 import {
+  Bell,
   CalendarDays,
   FileHeart,
   Pill,
@@ -15,13 +14,11 @@ import {
 } from "lucide-react";
 
 import { api } from "../services/api";
-
 import type {
   Appointment,
   Prescription,
   RecordItem,
 } from "../types";
-
 import { useAuth } from "../context/AuthContext";
 
 type DashboardStat = {
@@ -53,7 +50,9 @@ function formatAppointmentDate(
 function appointmentStatusClasses(
   status: string
 ) {
-  switch (status.toLowerCase()) {
+  switch (
+    status.toLowerCase()
+  ) {
     case "confirmed":
       return "border border-emerald-100 bg-emerald-50 text-emerald-700";
 
@@ -69,6 +68,9 @@ function appointmentStatusClasses(
     case "rescheduled":
       return "border border-violet-100 bg-violet-50 text-violet-700";
 
+    case "no-show":
+      return "border border-slate-200 bg-slate-50 text-slate-600";
+
     default:
       return "border border-[#DCEBED] bg-[#F5FAFB] text-[#647583]";
   }
@@ -77,7 +79,9 @@ function appointmentStatusClasses(
 function prescriptionStatusClasses(
   status: string
 ) {
-  switch (status.toLowerCase()) {
+  switch (
+    status.toLowerCase()
+  ) {
     case "valid":
     case "active":
       return "border border-emerald-100 bg-emerald-50 text-emerald-700";
@@ -95,22 +99,34 @@ function prescriptionStatusClasses(
 }
 
 export default function PatientDashboard() {
-  const { user } = useAuth();
+  const { user } =
+    useAuth();
 
   const [
     appointments,
     setAppointments,
-  ] = useState<Appointment[]>([]);
+  ] = useState<
+    Appointment[]
+  >([]);
 
   const [
     records,
     setRecords,
-  ] = useState<RecordItem[]>([]);
+  ] = useState<
+    RecordItem[]
+  >([]);
 
   const [
     prescriptions,
     setPrescriptions,
-  ] = useState<Prescription[]>([]);
+  ] = useState<
+    Prescription[]
+  >([]);
+
+  const [
+    unreadNotificationCount,
+    setUnreadNotificationCount,
+  ] = useState(0);
 
   const [
     loading,
@@ -134,49 +150,84 @@ export default function PatientDashboard() {
           appointmentResponse,
           recordResponse,
           prescriptionResponse,
-        ] = await Promise.all([
-          api.get(
-            "/appointments/mine"
-          ),
-          api.get(
-            "/medical-records/mine"
-          ),
-          api.get(
-            "/prescriptions/mine"
-          ),
-        ]);
+        ] =
+          await Promise.all([
+            api.get(
+              "/appointments/mine"
+            ),
+            api.get(
+              "/medical-records/mine"
+            ),
+            api.get(
+              "/prescriptions/mine"
+            ),
+          ]);
 
         if (!mounted) {
           return;
         }
 
         setAppointments(
-          appointmentResponse.data
-            .appointments ?? []
+          appointmentResponse
+            .data
+            .appointments ??
+            []
         );
 
         setRecords(
-          recordResponse.data.records ??
+          recordResponse
+            .data
+            .records ??
             []
         );
 
         setPrescriptions(
-          prescriptionResponse.data
-            .prescriptions ?? []
+          prescriptionResponse
+            .data
+            .prescriptions ??
+            []
         );
-      } catch (error: any) {
+
+        try {
+          const notificationResponse =
+            await api.get(
+              "/notifications/unread-count"
+            );
+
+          if (mounted) {
+            setUnreadNotificationCount(
+              Number(
+                notificationResponse
+                  .data
+                  ?.unreadCount
+              ) || 0
+            );
+          }
+        } catch {
+          if (mounted) {
+            setUnreadNotificationCount(
+              0
+            );
+          }
+        }
+      } catch (
+        error: any
+      ) {
         if (!mounted) {
           return;
         }
 
         setError(
-          error.response?.data
+          error.response
+            ?.data
             ?.message ||
             "Could not load your dashboard."
         );
       } finally {
         if (mounted) {
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       }
     }
@@ -190,7 +241,8 @@ export default function PatientDashboard() {
 
   const upcomingAppointments =
     useMemo(() => {
-      const now = Date.now();
+      const now =
+        Date.now();
 
       const activeStatuses =
         new Set([
@@ -257,30 +309,45 @@ export default function PatientDashboard() {
         );
     }, [appointments]);
 
-  const stats: DashboardStat[] = [
-    {
-      icon: CalendarDays,
-      title: "Appointments",
-      value: appointments.length,
-    },
-    {
-      icon: FileHeart,
-      title: "Medical records",
-      value: records.length,
-    },
-    {
-      icon: Pill,
-      title: "Prescriptions",
-      value: prescriptions.length,
-    },
-    {
-      icon: UserRound,
-      title: "Profile",
-      value: "Manage profile →",
-      href:
-        "/dashboard/patient/profile",
-    },
-  ];
+  const stats: DashboardStat[] =
+    [
+      {
+        icon: CalendarDays,
+        title:
+          "Appointments",
+        value:
+          appointments.length,
+        href:
+          "/dashboard/patient/appointments",
+      },
+      {
+        icon: FileHeart,
+        title:
+          "Medical records",
+        value:
+          records.length,
+        href:
+          "/dashboard/patient/records",
+      },
+      {
+        icon: Pill,
+        title:
+          "Prescriptions",
+        value:
+          prescriptions.length,
+        href:
+          "/dashboard/patient/prescriptions",
+      },
+      {
+        icon: UserRound,
+        title:
+          "Profile",
+        value:
+          "Manage profile →",
+        href:
+          "/dashboard/patient/profile",
+      },
+    ];
 
   const hiddenAppointmentCount =
     Math.max(
@@ -291,7 +358,8 @@ export default function PatientDashboard() {
 
   const hiddenPrescriptionCount =
     Math.max(
-      prescriptions.length - 2,
+      prescriptions.length -
+        2,
       0
     );
 
@@ -307,25 +375,51 @@ export default function PatientDashboard() {
             Good to see you,{" "}
             {user?.name?.split(
               " "
-            )[0] || "there"}
+            )[0] ||
+              "there"}
             .
           </h1>
 
           <p className="mt-2 text-sm text-[#647583]">
             Manage your
-            appointments, medical
-            history and
+            appointments,
+            medical history and
             prescriptions in one
             place.
           </p>
         </div>
 
-        <Link
-          className="btn-primary shrink-0"
-          to="/doctors"
-        >
-          Book appointment
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/dashboard/patient/notifications"
+            aria-label={
+              unreadNotificationCount >
+              0
+                ? `${unreadNotificationCount} unread notifications`
+                : "Notifications"
+            }
+            className="group relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#E2EBEF] bg-white text-navy transition hover:border-teal hover:text-teal hover:shadow-[0_10px_25px_rgba(11,41,69,0.07)]"
+          >
+            <Bell className="h-5 w-5" />
+
+            {unreadNotificationCount >
+              0 && (
+              <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-teal px-1.5 text-[10px] font-bold text-white shadow-sm">
+                {unreadNotificationCount >
+                99
+                  ? "99+"
+                  : unreadNotificationCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
+            className="btn-primary shrink-0"
+            to="/doctors"
+          >
+            Book appointment
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -336,7 +430,8 @@ export default function PatientDashboard() {
 
       {loading ? (
         <div className="py-14 text-sm text-[#647583]">
-          Loading your health
+          Loading your
+          health
           information...
         </div>
       ) : (
@@ -349,46 +444,63 @@ export default function PatientDashboard() {
                 value,
                 href,
               }) => {
-                const content = (
-                  <>
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#EAF8FA]">
-                      <Icon className="h-5 w-5 text-teal" />
-                    </div>
+                const content =
+                  (
+                    <>
+                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#EAF8FA]">
+                        <Icon className="h-5 w-5 text-teal" />
+                      </div>
 
-                    <p className="mt-4 text-sm font-medium text-[#647583]">
-                      {title}
-                    </p>
+                      <p className="mt-4 text-sm font-medium text-[#647583]">
+                        {
+                          title
+                        }
+                      </p>
 
-                    <p
-                      className={`mt-1 break-words font-display font-bold ${
-                        href
-                          ? "text-lg text-navy transition-colors group-hover:text-teal"
-                          : "text-2xl text-navy"
-                      }`}
-                    >
-                      {value}
-                    </p>
-                  </>
-                );
+                      <p
+                        className={`mt-1 break-words font-display font-bold ${
+                          href
+                            ? "text-lg text-navy transition-colors group-hover:text-teal"
+                            : "text-2xl text-navy"
+                        }`}
+                      >
+                        {
+                          value
+                        }
+                      </p>
+                    </>
+                  );
 
-                if (href) {
+                if (
+                  href
+                ) {
                   return (
                     <Link
-                      key={title}
-                      to={href}
+                      key={
+                        title
+                      }
+                      to={
+                        href
+                      }
                       className="group card min-w-0 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-teal hover:shadow-[0_14px_35px_rgba(11,41,69,0.09)]"
                     >
-                      {content}
+                      {
+                        content
+                      }
                     </Link>
                   );
                 }
 
                 return (
                   <div
+                    key={
+                      title
+                    }
                     className="card min-w-0 p-5"
-                    key={title}
                   >
-                    {content}
+                    {
+                      content
+                    }
                   </div>
                 );
               }
@@ -414,16 +526,19 @@ export default function PatientDashboard() {
 
               <div className="mt-4 grid gap-3">
                 {upcomingAppointments
-                  .slice(0, 5)
+                  .slice(
+                    0,
+                    5
+                  )
                   .map(
                     (
                       appointment
                     ) => (
                       <article
-                        className="card p-5 transition hover:border-[#CDE5E8]"
                         key={
                           appointment._id
                         }
+                        className="card p-5 transition hover:border-[#CDE5E8]"
                       >
                         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                           <div className="min-w-0">
@@ -454,8 +569,8 @@ export default function PatientDashboard() {
                               <span>
                                 {
                                   appointment.startTime
-                                }
-                                {" – "}
+                                }{" "}
+                                –{" "}
                                 {
                                   appointment.endTime
                                 }
@@ -492,8 +607,9 @@ export default function PatientDashboard() {
                     </p>
 
                     <p className="mt-2 text-sm leading-6 text-[#647583]">
-                      When you book your
-                      next appointment,
+                      When you book
+                      your next
+                      appointment,
                       it will appear
                       here.
                     </p>
@@ -502,7 +618,8 @@ export default function PatientDashboard() {
                       to="/doctors"
                       className="mt-4 inline-block text-sm font-semibold text-teal transition hover:text-navy"
                     >
-                      Find a doctor →
+                      Find a doctor
+                      →
                     </Link>
                   </div>
                 )}
@@ -538,20 +655,31 @@ export default function PatientDashboard() {
                     Recent medical
                     record
                   </h2>
+
+                  <Link
+                    to="/dashboard/patient/records"
+                    className="text-sm font-semibold text-teal transition hover:text-navy"
+                  >
+                    View all
+                    records
+                  </Link>
                 </div>
 
                 <div className="mt-4 grid gap-3">
                   {records
-                    .slice(0, 1)
+                    .slice(
+                      0,
+                      1
+                    )
                     .map(
                       (
                         record
                       ) => (
                         <article
-                          className="card p-5"
                           key={
                             record._id
                           }
+                          className="card p-5"
                         >
                           <p className="font-semibold text-navy">
                             {
@@ -609,11 +737,13 @@ export default function PatientDashboard() {
                       </p>
 
                       <p className="mt-2 text-sm leading-6 text-[#647583]">
-                        Your consultation
+                        Your
+                        consultation
                         history will
-                        appear here after
-                        a doctor saves a
-                        medical record.
+                        appear here
+                        after a doctor
+                        saves a medical
+                        record.
                       </p>
                     </div>
                   )}
@@ -628,25 +758,29 @@ export default function PatientDashboard() {
                   </h2>
 
                   <Link
-                    to="/verification"
+                    to="/dashboard/patient/prescriptions"
                     className="text-sm font-semibold text-teal transition hover:text-navy"
                   >
-                    Verify prescription
+                    View all
+                    prescriptions
                   </Link>
                 </div>
 
                 <div className="mt-4 grid gap-4">
                   {prescriptions
-                    .slice(0, 2)
+                    .slice(
+                      0,
+                      2
+                    )
                     .map(
                       (
                         prescription
                       ) => (
                         <article
-                          className="card p-5"
                           key={
                             prescription._id
                           }
+                          className="card p-5"
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
@@ -685,8 +819,8 @@ export default function PatientDashboard() {
                                 index
                               ) => (
                                 <div
-                                  className="rounded-xl bg-[#F5FAFB] p-4 text-sm"
                                   key={`${medicine.name}-${index}`}
+                                  className="rounded-xl bg-[#F5FAFB] p-4 text-sm"
                                 >
                                   <p className="font-semibold text-navy">
                                     {
@@ -724,7 +858,8 @@ export default function PatientDashboard() {
                             className="mt-4 inline-block text-sm font-semibold text-teal transition hover:text-navy"
                             to={`/verification?code=${prescription.prescriptionCode}`}
                           >
-                            Open verification
+                            Open
+                            verification
                             view →
                           </Link>
                         </article>
@@ -742,8 +877,10 @@ export default function PatientDashboard() {
                       <p className="mt-2 text-sm leading-6 text-[#647583]">
                         Prescriptions
                         issued during
-                        your consultations
-                        will appear here.
+                        your
+                        consultations
+                        will appear
+                        here.
                       </p>
                     </div>
                   )}
@@ -751,8 +888,8 @@ export default function PatientDashboard() {
                   {hiddenPrescriptionCount >
                     0 && (
                     <p className="px-1 pt-1 text-[11px] leading-5 text-[#9AA6AE]">
-                      Showing your 2 most
-                      recent
+                      Showing your 2
+                      most recent
                       prescriptions.{" "}
                       {
                         hiddenPrescriptionCount
