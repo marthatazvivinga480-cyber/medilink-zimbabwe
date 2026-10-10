@@ -30,6 +30,8 @@ export interface Doctor {
   location?: string;
   registrationInfo?: string;
 
+  consultationFee?: number;
+  currency?: "USD" | "ZWG";
   photoUrl?: string;
   facility?: string;
 

@@ -8,3 +8,13 @@ dist/
 # Local account maintenance scripts
 server/src/createAdmin.ts
 server/src/resetDoctorPassword.ts
+
+# Local browser test reports and screenshots
+client/test-results/
+client/playwright-report/
+
+# Environment files and credentials
+.env.*
+!.env.example
+*.pem
+*.key

@@ -1,3 +1,7 @@
+import Dialog from "../components/ui/Dialog";
+import ContextualError from "../components/ui/ContextualError";
+import AdminExceptions from "../components/AdminExceptions";
+import LoadingState from "../components/ui/LoadingState";
 import {
   FormEvent,
   ReactNode,
@@ -31,6 +35,8 @@ import { api } from "../services/api";
 import { Doctor } from "../types";
 
 type DoctorForm = {
+  consultationFee: string;
+  currency: "USD" | "ZWG";
   name: string;
   email: string;
   password: string;
@@ -94,6 +100,8 @@ const defaultDoctorPhotoUrls: Record<
 };
 
 const emptyDoctorForm: DoctorForm = {
+  consultationFee: "0",
+  currency: "USD",
   name: "",
   email: "",
   password: "",
@@ -138,6 +146,8 @@ function doctorToForm(
 
   return {
     name: doctorName,
+    consultationFee: String(doctor.consultationFee ?? 0),
+    currency: doctor.currency ?? "USD",
 
     email:
       doctor.userId?.email ?? "",
@@ -770,6 +780,9 @@ export default function AdminDashboard() {
       return "Years of experience must be zero or a positive whole number.";
     }
 
+    if (!form.consultationFee.trim() || !Number.isFinite(Number(form.consultationFee)) || Number(form.consultationFee) < 0) {
+      return "Consultation fee must be zero or a positive amount.";
+    }
     return "";
   }
 
@@ -777,6 +790,8 @@ export default function AdminDashboard() {
     form: DoctorForm
   ) {
     return {
+      consultationFee: Number(form.consultationFee),
+      currency: form.currency,
       name:
         form.name.trim(),
 
@@ -1177,11 +1192,11 @@ export default function AdminDashboard() {
         )}
 
         {error && (
-          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
+          <ContextualError message={error} />
         )}
 
+        {!loading && <section className="mt-6 border-l-4 border-amber-400 bg-amber-50 p-5"><h2 className="text-xl font-bold">Provider account exceptions</h2><div className="mt-3 flex flex-wrap gap-3"><button className="btn-secondary" onClick={() => { setVerificationFilter("pending"); setAccountFilter("all"); }}>{doctors.filter(d => !d.isVerified).length} awaiting verification</button><button className="btn-secondary" onClick={() => { setAccountFilter("inactive"); setVerificationFilter("all"); }}>{doctors.filter(d => d.userId?.isActive === false).length} inactive accounts</button></div></section>}
+        <AdminExceptions />
         <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard
             label="Doctors"
@@ -1466,10 +1481,7 @@ export default function AdminDashboard() {
 
           <div className="relative z-0 overflow-hidden rounded-b-2xl bg-white">
             {loading ? (
-              <div className="px-6 py-10 text-sm text-[#647583]">
-                Loading doctor
-                accounts...
-              </div>
+              <LoadingState label="Loading doctor accounts..." />
             ) : filteredDoctors.length ===
               0 ? (
               <div className="px-6 py-12 text-center">
@@ -1763,7 +1775,7 @@ export default function AdminDashboard() {
       )}
 
       {resetDoctor && (
-        <div className="fixed inset-0 z-50 overflow-x-hidden overflow-y-auto bg-[#071C2C]/45">
+        <Dialog label="Reset password" onClose={closeResetPassword} busy={resettingPassword}>
           <div className="flex min-h-full w-full items-center justify-center px-4 py-8">
             <form
               onSubmit={
@@ -1876,7 +1888,7 @@ export default function AdminDashboard() {
               </div>
             </form>
           </div>
-        </div>
+        </Dialog>
       )}
     </main>
   );
@@ -2138,7 +2150,7 @@ function DoctorModal({
   ) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 overflow-x-hidden overflow-y-auto bg-[#071C2C]/45">
+    <Dialog label={title} onClose={onClose} busy={submitting}>
       <div className="flex min-h-full w-full items-start justify-center px-4 py-8 sm:px-6">
         <div className="w-full max-w-4xl min-w-0">
           <form
@@ -2482,6 +2494,20 @@ function DoctorModal({
                 />
               </FormField>
 
+              <FormField label="Consultation fee" required>
+                <input className="field w-full min-w-0" type="number" min="0" step="0.01"
+                  name="medilink-doctor-consultation-fee" aria-label="Consultation fee" required disabled={addMode === "existing"}
+                  value={form.consultationFee}
+                  onChange={event => onFieldChange("consultationFee", event.target.value)} />
+                <p className="mt-1 text-xs text-slate-500">{addMode === "existing" ? "Use Edit doctor to change the fee after linking the account." : "A positive fee is required before patients can submit payments."}</p>
+              </FormField>
+              <FormField label="Currency">
+                <select className="field w-full min-w-0" aria-label="Currency" value={form.currency} disabled={addMode === "existing"}
+                  onChange={event => onFieldChange("currency", event.target.value as "USD" | "ZWG")}>
+                  <option value="USD">USD</option><option value="ZWG">ZWG</option>
+                </select>
+              </FormField>
+
               <FormField label="Facility">
                 <input
                   className="field w-full min-w-0"
@@ -2778,7 +2804,7 @@ function DoctorModal({
           </form>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

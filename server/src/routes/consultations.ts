@@ -242,7 +242,7 @@ router.post(
           ) {
             const prescriptionCode =
               `RX-MZ-${new Date().getFullYear()}-${crypto
-                .randomBytes(3)
+                .randomBytes(16)
                 .toString("hex")
                 .toUpperCase()}`;
 

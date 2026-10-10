@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import {
   Navigate,
   Route,
@@ -7,34 +8,40 @@ import {
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import Home from "./pages/Home";
-import Doctors from "./pages/Doctors";
-import DoctorProfile from "./pages/DoctorProfile";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import HowItWorks from "./pages/HowItWorks";
+const Home = lazy(() => import("./pages/Home"));
+const Doctors = lazy(() => import("./pages/Doctors"));
+const DoctorProfile = lazy(() => import("./pages/DoctorProfile"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
 
-import PatientDashboard from "./pages/PatientDashboard";
-import PatientProfile from "./pages/PatientProfile";
-import MyAppointments from "./pages/MyAppointments";
-import MedicalRecords from "./pages/MedicalRecords";
-import Prescriptions from "./pages/Prescriptions";
-import Notifications from "./pages/Notifications";
-import Payments from "./pages/Payments";
+const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
+const PatientProfile = lazy(() => import("./pages/PatientProfile"));
+const MyAppointments = lazy(() => import("./pages/MyAppointments"));
+const MedicalRecords = lazy(() => import("./pages/MedicalRecords"));
+const Prescriptions = lazy(() => import("./pages/Prescriptions"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Payments = lazy(() => import("./pages/Payments"));
 
-import DoctorDashboard from "./pages/DoctorDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
+const AdminPayments = lazy(() => import("./pages/AdminPayments"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 
-import Verification from "./pages/Verification";
-import NotFound from "./pages/NotFound";
+const Verification = lazy(() => import("./pages/Verification"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+import LoadingState from "./components/ui/LoadingState";
 
 import { useAuth } from "./context/AuthContext";
 
 function DashboardRedirect() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingState label="Restoring your session…" />;
+  if (user?.role === "pharmacy") return <Navigate to="/verification" replace />;
 
   if (!user) {
     return (
@@ -188,6 +195,10 @@ export default function App() {
             />
           }
         >
+          <Route
+            path="/admin/payments"
+            element={<AdminPayments />}
+          />
           <Route
             path="/admin"
             element={<AdminDashboard />}

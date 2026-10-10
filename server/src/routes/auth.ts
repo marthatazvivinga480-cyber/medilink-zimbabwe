@@ -17,12 +17,13 @@ const registerSchema = z.object({
   phone: z.string().optional(),
 });
 
-function tokenFor(user: any) {
+function tokenFor(user: { _id: { toString(): string }; role: string; email: string; sessionVersion?: number }) {
   return jwt.sign(
     {
       id: user._id.toString(),
       role: user.role,
       email: user.email,
+      sessionVersion: user.sessionVersion ?? 0,
     },
     env.jwtSecret,
     {

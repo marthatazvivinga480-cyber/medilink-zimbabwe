@@ -12,10 +12,7 @@ const demoDoctors = [
     email: "doctor@medilink.co.zw",
     phone: "+263 77 210 1001",
     speciality: "General Practice",
-    qualifications: [
-      "MBChB",
-      "Primary Care Medicine",
-    ],
+    qualifications: ["MBChB", "Primary Care Medicine"],
     biography:
       "General practitioner focused on preventive medicine, routine consultations and long-term patient care.",
     location: "Harare, Zimbabwe",
@@ -34,16 +31,12 @@ const demoDoctors = [
     ],
     consultationTypes: ["In-person"],
   },
-
   {
     name: "Dr. Rutendo Chikowore",
     email: "rutendo.chikowore@medilink.demo",
     phone: "+263 77 210 1002",
     speciality: "Paediatrics",
-    qualifications: [
-      "MBChB",
-      "MMed Paediatrics",
-    ],
+    qualifications: ["MBChB", "MMed Paediatrics"],
     biography:
       "Paediatric doctor providing child health reviews, developmental assessments and management of common childhood illnesses.",
     location: "Harare, Zimbabwe",
@@ -61,17 +54,12 @@ const demoDoctors = [
     ],
     consultationTypes: ["In-person"],
   },
-
   {
     name: "Dr. Tinashe Ncube",
     email: "tinashe.ncube@medilink.demo",
     phone: "+263 71 210 1003",
     speciality: "Cardiology",
-    qualifications: [
-      "MBChB",
-      "MMed",
-      "Cardiology",
-    ],
+    qualifications: ["MBChB", "MMed", "Cardiology"],
     biography:
       "Cardiology-focused physician supporting assessment and management of cardiovascular conditions.",
     location: "Bulawayo, Zimbabwe",
@@ -89,16 +77,12 @@ const demoDoctors = [
     ],
     consultationTypes: ["In-person"],
   },
-
   {
     name: "Dr. Nyasha Mupfumi",
     email: "nyasha.mupfumi@medilink.demo",
     phone: "+263 78 210 1004",
     speciality: "Dermatology",
-    qualifications: [
-      "MBChB",
-      "Dermatology",
-    ],
+    qualifications: ["MBChB", "Dermatology"],
     biography:
       "Dermatology practitioner focused on assessment and treatment of common skin, hair and nail conditions.",
     location: "Harare, Zimbabwe",
@@ -116,16 +100,12 @@ const demoDoctors = [
     ],
     consultationTypes: ["In-person"],
   },
-
   {
     name: "Dr. Farai Dube",
     email: "farai.dube@medilink.demo",
     phone: "+263 71 210 1005",
     speciality: "Orthopaedics",
-    qualifications: [
-      "MBChB",
-      "Orthopaedic Surgery",
-    ],
+    qualifications: ["MBChB", "Orthopaedic Surgery"],
     biography:
       "Orthopaedic practitioner supporting patients with musculoskeletal injuries, joint problems and follow-up care.",
     location: "Bulawayo, Zimbabwe",
@@ -143,23 +123,19 @@ const demoDoctors = [
     ],
     consultationTypes: ["In-person"],
   },
-
   {
     name: "Dr. Tariro Maposa",
     email: "tariro.maposa@medilink.demo",
     phone: "+263 77 210 1006",
     speciality: "Obstetrics & Gynaecology",
-    qualifications: [
-      "MBChB",
-      "MMed Obstetrics & Gynaecology",
-    ],
+    qualifications: ["MBChB", "MMed Obstetrics & Gynaecology"],
     biography:
       "Women's health practitioner providing gynaecological consultations and antenatal care.",
     location: "Harare, Zimbabwe",
     facility: "MediLink Demo Women's Health Centre",
     registrationInfo: "Demo provider profile",
     photoUrl:
-   "https://images.unsplash.com/photo-1550831107-1553da8c8464?auto=format&fit=crop&w=900&q=80",
+      "https://images.unsplash.com/photo-1550831107-1553da8c8464?auto=format&fit=crop&w=900&q=80",
     languages: ["English", "Shona"],
     yearsOfExperience: 11,
     areasOfCare: [
@@ -172,14 +148,14 @@ const demoDoctors = [
   },
 ];
 
-function dateAfter(days: number) {
+function dateAfter(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
 
   return date.toISOString().slice(0, 10);
 }
 
-async function seedDoctors() {
+async function seedDoctors(): Promise<void> {
   await connectDatabase();
 
   console.log("\nSeeding demo doctors...");
@@ -193,10 +169,7 @@ async function seedDoctors() {
       user = await User.create({
         name: data.name,
         email: data.email,
-        passwordHash: await bcrypt.hash(
-          "Doctor123!",
-          12
-        ),
+        passwordHash: await bcrypt.hash("Doctor123!", 12),
         role: "doctor",
         phone: data.phone,
       });
@@ -212,71 +185,75 @@ async function seedDoctors() {
         userId: user._id,
       },
       {
-        userId: user._id,
-        speciality: data.speciality,
-        qualifications: data.qualifications,
-        biography: data.biography,
-        location: data.location,
-        facility: data.facility,
-        registrationInfo:
-          data.registrationInfo,
-        photoUrl: data.photoUrl,
-        languages: data.languages,
-        yearsOfExperience:
-          data.yearsOfExperience,
-        areasOfCare: data.areasOfCare,
-        consultationTypes:
-          data.consultationTypes,
-        isVerified: true,
+        $set: {
+          userId: user._id,
+          speciality: data.speciality,
+          qualifications: data.qualifications,
+          biography: data.biography,
+          location: data.location,
+          facility: data.facility,
+          registrationInfo: data.registrationInfo,
+          photoUrl: data.photoUrl,
+          languages: data.languages,
+          yearsOfExperience: data.yearsOfExperience,
+          areasOfCare: data.areasOfCare,
+          consultationTypes: data.consultationTypes,
+          isVerified: true,
+        },
       },
       {
         new: true,
         upsert: true,
+        runValidators: true,
       }
     );
 
     for (let day = 1; day <= 7; day++) {
       const date = dateAfter(day);
 
-      await DoctorAvailability.findOneAndUpdate(
+      // Add default slots only when this doctor's date has no record.
+      // Existing availability and booking statuses are left unchanged.
+      await DoctorAvailability.updateOne(
         {
           doctorId: doctor._id,
           date,
         },
         {
-          doctorId: doctor._id,
-          date,
-          slots: [
-            {
-              startTime: "08:30",
-              endTime: "09:00",
-              isBooked: false,
-            },
-            {
-              startTime: "09:30",
-              endTime: "10:00",
-              isBooked: false,
-            },
-            {
-              startTime: "11:00",
-              endTime: "11:30",
-              isBooked: false,
-            },
-            {
-              startTime: "14:00",
-              endTime: "14:30",
-              isBooked: false,
-            },
-            {
-              startTime: "15:30",
-              endTime: "16:00",
-              isBooked: false,
-            },
-          ],
+          $setOnInsert: {
+            doctorId: doctor._id,
+            date,
+            slots: [
+              {
+                startTime: "08:30",
+                endTime: "09:00",
+                isBooked: false,
+              },
+              {
+                startTime: "09:30",
+                endTime: "10:00",
+                isBooked: false,
+              },
+              {
+                startTime: "11:00",
+                endTime: "11:30",
+                isBooked: false,
+              },
+              {
+                startTime: "14:00",
+                endTime: "14:30",
+                isBooked: false,
+              },
+              {
+                startTime: "15:30",
+                endTime: "16:00",
+                isBooked: false,
+              },
+            ],
+          },
         },
         {
-          new: true,
           upsert: true,
+          runValidators: true,
         }
       );
     }
@@ -286,17 +263,14 @@ async function seedDoctors() {
 
   console.log("\nDemo doctors ready.");
   console.log("Demo password: Doctor123!");
-  console.log(
-    "These are fictional demo provider profiles.\n"
-  );
-
-  await mongoose.disconnect();
+  console.log("These are fictional demo provider profiles.\n");
 }
 
-seedDoctors().catch(async (error) => {
-  console.error(error);
-
-  await mongoose.disconnect();
-
-  process.exit(1);
-});
+seedDoctors()
+  .catch((error: unknown) => {
+    console.error("Failed to seed demo doctors:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await mongoose.disconnect();
+  })

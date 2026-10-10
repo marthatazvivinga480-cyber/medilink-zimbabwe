@@ -1,3 +1,4 @@
+import { requestContext } from "./middleware/requestContext.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -24,7 +25,9 @@ import {
 
 const app = express();
 
+app.disable("x-powered-by");
 app.use(helmet());
+app.use("/api", requestContext);
 
 app.use(
   cors({

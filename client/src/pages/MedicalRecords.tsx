@@ -1,3 +1,5 @@
+import ContextualError from "../components/ui/ContextualError";
+import LoadingState from "../components/ui/LoadingState";
 import {
   FileHeart,
   Search,
@@ -11,7 +13,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 
 import { api } from "../services/api";
 
@@ -77,6 +79,8 @@ function recordDoctorName(
 }
 
 export default function MedicalRecords() {
+  const [params, setParams] = useSearchParams();
+  const appointmentFilter = params.get("appointment");
   const [
     records,
     setRecords,
@@ -174,16 +178,17 @@ export default function MedicalRecords() {
 
   const filteredRecords =
     useMemo(() => {
+      const linked = appointmentFilter ? records.filter(item => item.appointmentId === appointmentFilter) : records;
       const term =
         search
           .trim()
           .toLowerCase();
 
       if (!term) {
-        return records;
+        return linked;
       }
 
-      return records.filter(
+      return linked.filter(
         (record) => {
           const searchable =
             [
@@ -209,6 +214,7 @@ export default function MedicalRecords() {
         }
       );
     }, [
+      appointmentFilter,
       records,
       search,
     ]);
@@ -284,9 +290,7 @@ export default function MedicalRecords() {
 
       <section className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
+          <ContextualError message={error} />
         )}
 
         <div className="mb-6">
@@ -308,12 +312,9 @@ export default function MedicalRecords() {
           </div>
         </div>
 
+        {appointmentFilter && <div className="my-4 flex flex-wrap items-center gap-3 text-sm"><span>Showing documents from the linked consultation</span><button className="btn-secondary" onClick={() => { const next = new URLSearchParams(params); next.delete("appointment"); setParams(next); }}>Show all consultations</button></div>}
         {loading ? (
-          <div className="card flex min-h-[320px] items-center justify-center p-8">
-            <p className="text-sm font-medium text-[#647583]">
-              Loading your medical records...
-            </p>
-          </div>
+          <LoadingState label="Loading your medical records" />
         ) : records.length ===
           0 ? (
           <div className="card flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center">
@@ -455,6 +456,7 @@ export default function MedicalRecords() {
                 </div>
 
                 <div className="space-y-7 p-6">
+                  {selectedRecord.appointmentId && <Link className="inline-block text-sm font-semibold text-teal-dark" to={"/dashboard/patient/prescriptions?appointment=" + encodeURIComponent(selectedRecord.appointmentId)}>View prescriptions from this consultation →</Link>}
                   <section>
                     <h3 className="text-sm font-bold text-navy">
                       Diagnosis explanation

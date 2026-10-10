@@ -1,3 +1,7 @@
+import ContextualError from "../components/ui/ContextualError";
+import AppointmentPayment from "../components/AppointmentPayment";
+import LoadingState from "../components/ui/LoadingState";
+import { statusClasses as sharedStatusClasses } from "../components/ui/status";
 import {
   useEffect,
   useMemo,
@@ -47,56 +51,9 @@ function formatAppointmentDate(
   );
 }
 
-function appointmentStatusClasses(
-  status: string
-) {
-  switch (
-    status.toLowerCase()
-  ) {
-    case "confirmed":
-      return "border border-emerald-100 bg-emerald-50 text-emerald-700";
+const appointmentStatusClasses = sharedStatusClasses;
 
-    case "pending":
-      return "border border-amber-100 bg-amber-50 text-amber-700";
-
-    case "completed":
-      return "border border-sky-100 bg-sky-50 text-sky-700";
-
-    case "cancelled":
-      return "border border-red-100 bg-red-50 text-red-600";
-
-    case "rescheduled":
-      return "border border-violet-100 bg-violet-50 text-violet-700";
-
-    case "no-show":
-      return "border border-slate-200 bg-slate-50 text-slate-600";
-
-    default:
-      return "border border-[#DCEBED] bg-[#F5FAFB] text-[#647583]";
-  }
-}
-
-function prescriptionStatusClasses(
-  status: string
-) {
-  switch (
-    status.toLowerCase()
-  ) {
-    case "valid":
-    case "active":
-      return "border border-emerald-100 bg-emerald-50 text-emerald-700";
-
-    case "dispensed":
-      return "border border-sky-100 bg-sky-50 text-sky-700";
-
-    case "expired":
-    case "cancelled":
-      return "border border-red-100 bg-red-50 text-red-600";
-
-    default:
-      return "border border-[#CFECEE] bg-[#EAF8FA] text-teal";
-  }
-}
+const prescriptionStatusClasses = sharedStatusClasses;
 
 export default function PatientDashboard() {
   const { user } =
@@ -423,20 +380,15 @@ export default function PatientDashboard() {
       </div>
 
       {error && (
-        <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
+        <ContextualError message={error} />
       )}
 
       {loading ? (
-        <div className="py-14 text-sm text-[#647583]">
-          Loading your
-          health
-          information...
-        </div>
+        <LoadingState label="Loading your health information..." />
       ) : (
         <>
-          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="mt-7 border-l-4 border-teal bg-[#F5FAFB] p-5"><h2 className="text-xl font-bold">Your next care action</h2>{upcomingAppointments[0] ? <><p className="mt-2 font-semibold">{upcomingAppointments[0].doctorId?.userId?.name || "Your doctor"} · {formatAppointmentDate(upcomingAppointments[0].date)} · {upcomingAppointments[0].startTime}</p><p className="mt-2 text-sm">{upcomingAppointments[0].status === "pending" ? "Your request is awaiting confirmation. Check appointments for updates." : "Review your appointment and arrange payment or medical aid."}</p><AppointmentPayment appointment={upcomingAppointments[0]} /></> : <Link to="/doctors" className="mt-3 inline-block font-semibold text-teal-dark">Find a doctor and book your next appointment →</Link>}</section>
+          <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map(
               ({
                 icon: Icon,
@@ -594,6 +546,7 @@ export default function PatientDashboard() {
                             }
                           </span>
                         </div>
+                        <AppointmentPayment appointment={appointment} />
                       </article>
                     )
                   )}

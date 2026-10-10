@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, sans-serif;
-  color: #102c44;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  color: var(--color-navy);
   background: #ffffff;
 }
 
@@ -95,6 +95,25 @@ textarea {
   }
 
   .card {
-    @apply rounded-2xl border border-[#E2EBEF] bg-white shadow-[0_12px_35px_rgba(11,41,69,0.06)];
+    @apply rounded-2xl border bg-white;
+    border-color: var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 4px 18px rgba(11,41,69,0.04);
   }
 }
+:root { --color-navy: #0B2945; --color-teal: #087F8C; --color-teal-dark: #066571; --color-teal-rgb: 8 127 140; --color-teal-dark-rgb: 6 101 113; --color-accent: #08A6B5; --color-navy-rgb: 11 41 69; --color-success: #047857; --color-warning: #92400E; --color-danger: #B91C1C; --color-info: #0369A1; --color-surface: #F5FAFB; --color-border: #E2EBEF; --color-muted: #647583; --radius-card: 1rem; }
+:focus-visible { outline: 3px solid var(--color-teal-dark); outline-offset: 3px; }
+.skip-link { position: fixed; top: -100px; left: 1rem; z-index: 100; background: white; padding: 1rem; }
+.skip-link:focus { top: 1rem; }
+.product-view h1 { font-size: clamp(1.75rem, 4vw, 2.25rem); line-height: 1.2; }
+.product-view .card { box-shadow: none; border-radius: var(--radius-card); }
+.product-view { overflow-wrap: anywhere; }
+.product-view input[type="search"], .product-view input[placeholder*="Search"] { min-height: 48px; }
+@media (max-width: 430px) { .product-view .btn-primary, .product-view .btn-secondary { padding-left: 1rem; padding-right: 1rem; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+.bg-navy .text-teal, footer .text-teal { color: #61D7DF; }
+.app-dialog { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--color-navy); overflow-y: auto; }
+.app-dialog::backdrop { background: rgb(7 28 44 / 55%); }
+.app-dialog[open] { display: block; }
+.app-dialog input, .app-dialog select, .app-dialog textarea { min-width: 0; }
+@media (max-width: 767px) { input, select, textarea, .field { font-size: 16px; } }

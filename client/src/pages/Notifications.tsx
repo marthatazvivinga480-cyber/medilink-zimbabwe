@@ -1,3 +1,4 @@
+import LoadingState from "../components/ui/LoadingState";
 import {
   ArrowLeft,
   Bell,
@@ -28,6 +29,7 @@ type NotificationType =
   | "appointment_reminder"
   | "prescription_issued"
   | "medical_record_added"
+  | "payment_updated"
   | "general";
 
 type NotificationItem = {
@@ -91,6 +93,8 @@ function notificationLabel(
   type: NotificationType
 ) {
   switch (type) {
+    case "payment_updated":
+      return "Payment or medical aid";
     case "appointment_confirmed":
       return "Appointment confirmed";
 
@@ -114,6 +118,15 @@ function notificationLabel(
   }
 }
 
+function notificationDestination(notification: NotificationItem) {
+  if (notification.link?.startsWith("/") && !notification.link.startsWith("//")) return notification.link;
+  const type = notification.type || "";
+  if (type.includes("payment") || type.includes("medical_aid")) return "/dashboard/patient/payments";
+  if (type.includes("prescription")) return "/dashboard/patient/prescriptions";
+  if (type.includes("record") || type.includes("consultation")) return "/dashboard/patient/records";
+  if (type.includes("appointment")) return "/dashboard/patient/appointments";
+  return undefined;
+}
 export default function Notifications() {
   const navigate =
     useNavigate();
@@ -210,11 +223,9 @@ export default function Notifications() {
       notification.isRead
     ) {
       if (
-        notification.link
+        notificationDestination(notification)
       ) {
-        navigate(
-          notification.link
-        );
+        navigate(notificationDestination(notification)!);
       }
 
       return;
@@ -245,11 +256,9 @@ export default function Notifications() {
       );
 
       if (
-        notification.link
+        notificationDestination(notification)
       ) {
-        navigate(
-          notification.link
-        );
+        navigate(notificationDestination(notification)!);
       }
     } catch (
       error: any
@@ -424,11 +433,7 @@ export default function Notifications() {
         )}
 
         {loading ? (
-          <div className="card mt-6 flex min-h-[300px] items-center justify-center p-8">
-            <p className="text-sm font-medium text-[#647583]">
-              Loading your notifications...
-            </p>
-          </div>
+          <LoadingState label="Loading your notifications" />
         ) : notifications.length ===
           0 ? (
           <div className="card mt-6 flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center">
@@ -537,7 +542,7 @@ export default function Notifications() {
                             )}
                           </div>
 
-                          {notification.link && (
+                          {notificationDestination(notification) && (
                             <span className="text-sm font-semibold text-teal">
                               Open details →
                             </span>

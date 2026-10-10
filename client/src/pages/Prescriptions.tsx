@@ -1,3 +1,6 @@
+import ContextualError from "../components/ui/ContextualError";
+import LoadingState from "../components/ui/LoadingState";
+import { statusClasses as sharedStatusClasses } from "../components/ui/status";
 import {
   ArrowLeft,
   CalendarDays,
@@ -13,7 +16,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 
 import { api } from "../services/api";
 
@@ -37,6 +40,7 @@ type Medicine = {
 type Prescription = {
   _id: string;
   prescriptionCode: string;
+  appointmentId?: string;
   doctorId?: Doctor;
   medicines: Medicine[];
   instructions?: string;
@@ -83,29 +87,11 @@ function doctorName(
   );
 }
 
-function statusClasses(
-  status: string
-) {
-  switch (
-    status.toLowerCase()
-  ) {
-    case "valid":
-    case "active":
-      return "border border-emerald-100 bg-emerald-50 text-emerald-700";
-
-    case "dispensed":
-      return "border border-sky-100 bg-sky-50 text-sky-700";
-
-    case "expired":
-    case "cancelled":
-      return "border border-red-100 bg-red-50 text-red-600";
-
-    default:
-      return "border border-[#CFECEE] bg-[#EAF8FA] text-teal";
-  }
-}
+const statusClasses = sharedStatusClasses;
 
 export default function Prescriptions() {
+  const [params, setParams] = useSearchParams();
+  const appointmentFilter = params.get("appointment");
   const [
     prescriptions,
     setPrescriptions,
@@ -203,16 +189,17 @@ export default function Prescriptions() {
 
   const filteredPrescriptions =
     useMemo(() => {
+      const linked = appointmentFilter ? prescriptions.filter(item => item.appointmentId === appointmentFilter) : prescriptions;
       const term =
         search
           .trim()
           .toLowerCase();
 
       if (!term) {
-        return prescriptions;
+        return linked;
       }
 
-      return prescriptions.filter(
+      return linked.filter(
         (
           prescription
         ) => {
@@ -245,6 +232,7 @@ export default function Prescriptions() {
         }
       );
     }, [
+      appointmentFilter,
       prescriptions,
       search,
     ]);
@@ -324,9 +312,7 @@ export default function Prescriptions() {
 
       <section className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
+          <ContextualError message={error} />
         )}
 
         <div className="mb-6">
@@ -350,12 +336,9 @@ export default function Prescriptions() {
           </div>
         </div>
 
+        {appointmentFilter && <div className="my-4 flex flex-wrap items-center gap-3 text-sm"><span>Showing documents from the linked consultation</span><button className="btn-secondary" onClick={() => { const next = new URLSearchParams(params); next.delete("appointment"); setParams(next); }}>Show all consultations</button></div>}
         {loading ? (
-          <div className="card flex min-h-[320px] items-center justify-center p-8">
-            <p className="text-sm font-medium text-[#647583]">
-              Loading your prescriptions...
-            </p>
-          </div>
+          <LoadingState label="Loading your prescriptions" />
         ) : prescriptions.length ===
           0 ? (
           <div className="card flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center">
@@ -474,6 +457,7 @@ export default function Prescriptions() {
 
             {selectedPrescription && (
               <article className="card overflow-hidden">
+                {selectedPrescription.appointmentId && <Link className="block border-b border-slate-200 p-4 text-sm font-semibold text-teal-dark" to={"/dashboard/patient/records?appointment=" + encodeURIComponent(selectedPrescription.appointmentId)}>View medical records from this consultation →</Link>}
                 <div className="border-b border-[#E2EBEF] bg-[#F5FAFB] p-6">
                   <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                     <div>

@@ -1,3 +1,6 @@
+import OptimizedImage from "../components/OptimizedImage";
+import ConsultationFee from "../components/ConsultationFee";
+import LoadingState from "../components/ui/LoadingState";
 import {
   useEffect,
   useMemo,
@@ -99,7 +102,10 @@ function DoctorPhoto({
   }
 
   return (
-    <img
+    <OptimizedImage
+      decoding="async"
+      width={440}
+      height={550}
       src={doctor.photoUrl}
       alt={
         doctor.userId?.name ||
@@ -662,6 +668,9 @@ export default function DoctorProfile() {
         !item.isBooked
     ) ?? [];
 
+  const [reviewing, setReviewing] = useState(false);
+  useEffect(() => { setReviewing(false); }, [date, slot, reason, id]);
+
   async function bookAppointment() {
     if (!user) {
       navigate("/login");
@@ -708,6 +717,8 @@ export default function DoctorProfile() {
 
       return;
     }
+
+    if (!reviewing) { setReviewing(true); return; }
 
     try {
       setBooking(true);
@@ -759,6 +770,7 @@ export default function DoctorProfile() {
           )
       );
 
+      setReviewing(false);
       setSlot(null);
 
       setMessageType(
@@ -785,9 +797,7 @@ export default function DoctorProfile() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-5 py-20 text-[#647583] lg:px-8">
-        Loading doctor profile...
-      </div>
+      <LoadingState label="Loading doctor profile..." />
     );
   }
 
@@ -1044,6 +1054,7 @@ export default function DoctorProfile() {
               </div>
             </div>
 
+            <ConsultationFee doctor={doctor} />
             <div className="mt-7">
               <p className="text-sm font-semibold text-navy">
                 Available date
@@ -1146,6 +1157,7 @@ export default function DoctorProfile() {
               </div>
             )}
 
+            {reviewing && slot && <section aria-label="Booking review" className="mt-5 rounded-xl border border-teal/30 bg-teal/5 p-4 text-sm"><h3 className="font-bold">Review your appointment request</h3><dl className="mt-3 space-y-2"><div><dt className="text-slate-600">Doctor</dt><dd>{doctor.userId.name} · {doctor.speciality}</dd></div><div><dt className="text-slate-600">Facility</dt><dd>{doctor.facility || "Confirm with your doctor"}</dd></div><div><dt className="text-slate-600">Date and time</dt><dd>{formatDate(date)} · {slot.startTime}–{slot.endTime}</dd></div><div><dt className="text-slate-600">Reason</dt><dd className="whitespace-pre-wrap">{reason.trim()}</dd></div></dl><ConsultationFee doctor={doctor} /><p className="text-xs text-slate-600">This sends an appointment request. No payment is taken. Consultation arrangements must be confirmed with the doctor.</p><button type="button" className="btn-secondary mt-3" disabled={booking} onClick={() => setReviewing(false)}>Edit details</button></section>}
             <button
               type="button"
               onClick={
@@ -1158,7 +1170,7 @@ export default function DoctorProfile() {
             >
               {booking
                 ? "Booking..."
-                : "Confirm booking"}
+                : reviewing ? "Confirm booking" : "Review booking"}
             </button>
           </aside>
         </div>

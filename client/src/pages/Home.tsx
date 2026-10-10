@@ -1,3 +1,4 @@
+import OptimizedImage from "../components/OptimizedImage";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -62,7 +63,7 @@ export default function Home() {
               Healthcare, connected
             </p>
 
-            <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-navy md:text-6xl">
+            <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-navy">
               Your Health,
               <br />
               <span className="text-teal">
@@ -110,8 +111,9 @@ export default function Home() {
           <div className="relative">
             <div className="overflow-hidden rounded-3xl border border-[#E2EBEF] bg-white p-3 shadow-[0_20px_55px_rgba(11,41,69,0.10)]">
               <div className="relative overflow-hidden rounded-2xl">
-                <img
+                <OptimizedImage
                   src="/images/medilink-hero.png"
+                  fetchPriority="high" width={1280} height={960} sizes="(max-width: 1024px) 90vw, 650px"
                   alt="Diverse MediLink healthcare team"
                   className="h-[430px] w-full object-cover object-center sm:h-[460px] lg:h-[480px]"
                 />

@@ -1,3 +1,5 @@
+import { notifyPayment, paymentSnapshot } from "../services/paymentNotifications.js";
+import { resolvePaymentAmounts } from "../services/paymentAmounts.js";
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
@@ -69,6 +71,7 @@ const createPaymentSchema = z.object({
 });
 
 const adminStatusSchema = z.object({
+  expectedVersion: z.number().int().min(0).optional(),
   status: z.enum([
     "unpaid",
     "pending",
@@ -143,17 +146,6 @@ const adminStatusSchema = z.object({
     .max(150)
     .optional(),
 });
-
-function calculatePatientBalance(
-  totalAmount: number,
-  amountPaid: number,
-  amountCovered: number
-) {
-  return Math.max(
-    0,
-    totalAmount - amountPaid - amountCovered
-  );
-}
 
 function isValidObjectId(value: string) {
   return mongoose.Types.ObjectId.isValid(value);
@@ -366,6 +358,7 @@ router.post(
         refundedAmount: 0,
       });
 
+      await notifyPayment(payment);
       return res.status(201).json({
         message:
           method === "medical_aid"
@@ -375,10 +368,7 @@ router.post(
         payment,
       });
     } catch (error) {
-      console.error(
-        "Create payment error:",
-        error
-      );
+      console.error("Create payment error:");
 
       if (
         error instanceof Error &&
@@ -442,10 +432,7 @@ router.get(
         payments,
       });
     } catch (error) {
-      console.error(
-        "Get patient payments error:",
-        error
-      );
+      console.error("Get patient payments error:");
 
       return res.status(500).json({
         message:
@@ -525,10 +512,7 @@ router.get(
         payment: payment ?? null,
       });
     } catch (error) {
-      console.error(
-        "Get appointment payment error:",
-        error
-      );
+      console.error("Get appointment payment error:");
 
       return res.status(500).json({
         message:
@@ -581,10 +565,7 @@ router.get(
         payments,
       });
     } catch (error) {
-      console.error(
-        "Get doctor payments error:",
-        error
-      );
+      console.error("Get doctor payments error:");
 
       return res.status(500).json({
         message:
@@ -685,10 +666,7 @@ router.get(
         totals,
       });
     } catch (error) {
-      console.error(
-        "Get admin payments error:",
-        error
-      );
+      console.error("Get admin payments error:");
 
       return res.status(500).json({
         message:
@@ -746,6 +724,10 @@ router.patch(
         });
       }
 
+      if (parsed.data.expectedVersion !== undefined && parsed.data.expectedVersion !== (payment.__v ?? 0)) {
+        return res.status(409).json({ message: "This payment changed. Refresh before saving your review." });
+      }
+      const previousState = paymentSnapshot(payment);
       const {
         status,
         transactionReference,
@@ -760,49 +742,25 @@ router.patch(
         medicalAidClaimReference,
       } = parsed.data;
 
-      const nextAmountPaid =
-        amountPaid ??
-        Number(
-          payment.amountPaid ?? 0
-        );
-
-      const nextAmountCovered =
-        amountCovered ??
-        Number(
-          payment.amountCovered ?? 0
-        );
-
-      if (
-        nextAmountPaid >
-        payment.amount
-      ) {
-        return res.status(400).json({
-          message:
-            "Amount paid cannot exceed the consultation fee.",
-        });
+      const amounts = resolvePaymentAmounts({
+        amount: payment.amount,
+        amountPaid: Number(payment.amountPaid ?? 0),
+        amountCovered: Number(payment.amountCovered ?? 0),
+      }, { status, amountPaid, amountCovered });
+      if ("error" in amounts) {
+        return res.status(400).json({ message: amounts.error });
       }
+      const nextAmountPaid = amounts.paid;
+      const nextAmountCovered = amounts.covered;
 
-      if (
-        nextAmountCovered >
-        payment.amount
-      ) {
-        return res.status(400).json({
-          message:
-            "Medical aid coverage cannot exceed the consultation fee.",
-        });
+      const nextRefund = refundedAmount ?? Number(payment.refundedAmount ?? 0);
+      const resolvedRefund = status === "refunded" && nextRefund <= 0 ? nextAmountPaid : nextRefund;
+      if (resolvedRefund > nextAmountPaid) {
+        return res.status(400).json({ message: "Refund amount cannot exceed the amount paid, including previously recorded refunds." });
       }
-
-      if (
-        nextAmountPaid +
-          nextAmountCovered >
-        payment.amount
-      ) {
-        return res.status(400).json({
-          message:
-            "Combined patient payment and medical aid coverage cannot exceed the consultation fee.",
-        });
+      if (status === "refunded" && resolvedRefund <= 0) {
+        return res.status(400).json({ message: "A refund requires a recorded patient payment." });
       }
-
       payment.status = status;
 
       payment.amountPaid =
@@ -811,12 +769,7 @@ router.patch(
       payment.amountCovered =
         nextAmountCovered;
 
-      payment.patientBalance =
-        calculatePatientBalance(
-          payment.amount,
-          nextAmountPaid,
-          nextAmountCovered
-        );
+      payment.patientBalance = amounts.balance;
 
       if (
         transactionReference !==
@@ -892,12 +845,7 @@ router.patch(
       if (
         status === "paid"
       ) {
-        payment.amountPaid =
-          payment.amount;
-
-        payment.amountCovered = 0;
-
-        payment.patientBalance = 0;
+        // Amounts were validated above; never erase medical-aid attribution.
 
         payment.paymentDate =
           new Date();
@@ -922,6 +870,8 @@ router.patch(
         }
       }
 
+      if (status === "medical_aid_declined") payment.medicalAid.claimStatus = "declined";
+
       if (
         status === "failed" ||
         status ===
@@ -942,6 +892,7 @@ router.patch(
       }
 
       await payment.save();
+      if (paymentSnapshot(payment) !== previousState) await notifyPayment(payment);
 
       return res.json({
         message:
@@ -949,10 +900,8 @@ router.patch(
         payment,
       });
     } catch (error) {
-      console.error(
-        "Update payment status error:",
-        error
-      );
+      if (error instanceof mongoose.Error.VersionError) return res.status(409).json({ message: "This payment changed. Refresh before saving your review." });
+      console.error("Payment reconciliation failed");
 
       return res.status(500).json({
         message:

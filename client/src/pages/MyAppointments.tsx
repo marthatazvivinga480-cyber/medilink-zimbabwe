@@ -1,3 +1,7 @@
+import ListSearch from "../components/ui/ListSearch";
+import AppointmentPayment from "../components/AppointmentPayment";
+import LoadingState from "../components/ui/LoadingState";
+import { statusClasses as sharedStatusClasses } from "../components/ui/status";
 import {
   useEffect,
   useMemo,
@@ -246,37 +250,7 @@ function getStatusLabel(
   );
 }
 
-function statusClasses(
-  status: DisplayStatus
-) {
-  switch (
-    status.toLowerCase()
-  ) {
-    case "pending":
-      return "border border-amber-100 bg-amber-50 text-amber-700";
-
-    case "confirmed":
-      return "border border-emerald-100 bg-emerald-50 text-emerald-700";
-
-    case "completed":
-      return "border border-sky-100 bg-sky-50 text-sky-700";
-
-    case "cancelled":
-      return "border border-red-100 bg-red-50 text-red-600";
-
-    case "rescheduled":
-      return "border border-violet-100 bg-violet-50 text-violet-700";
-
-    case "no-show":
-      return "border border-orange-100 bg-orange-50 text-orange-700";
-
-    case "awaiting-update":
-      return "border border-slate-200 bg-slate-50 text-slate-600";
-
-    default:
-      return "border border-[#DCEBED] bg-[#F5FAFB] text-[#647583]";
-  }
-}
+const statusClasses = sharedStatusClasses;
 
 function canCancelAppointment(
   appointment: Appointment
@@ -332,6 +306,7 @@ function getDoctorId(
 }
 
 export default function MyAppointments() {
+  const [search, setSearch] = useState("");
   const [
     appointments,
     setAppointments,
@@ -475,6 +450,7 @@ export default function MyAppointments() {
           (
             appointment
           ) => {
+            if (search.trim() && ![appointment.doctorId?.userId?.name, appointment.date, appointment.reason, appointment.status].join(" ").toLowerCase().includes(search.trim().toLowerCase())) return false;
             if (
               selectedFilter ===
               "all"
@@ -531,6 +507,7 @@ export default function MyAppointments() {
     }, [
       appointments,
       selectedFilter,
+      search,
     ]);
 
   const upcomingCount =
@@ -979,11 +956,9 @@ export default function MyAppointments() {
           </div>
         </div>
 
+        <ListSearch value={search} onChange={setSearch} label="Search appointments, doctors or dates" />
         {loading ? (
-          <div className="py-16 text-sm text-[#647583]">
-            Loading your
-            appointments...
-          </div>
+          <LoadingState label="Loading your appointments..." />
         ) : (
           <div className="mt-6">
             <div className="mb-4 flex items-center justify-between gap-4">
@@ -1409,6 +1384,7 @@ export default function MyAppointments() {
                             </div>
                           </div>
                         )}
+                        <AppointmentPayment appointment={appointment} />
                       </article>
                     );
                   }

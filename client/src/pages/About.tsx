@@ -16,7 +16,7 @@ export default function About() {
             About MediLink
           </p>
 
-          <h1 className="mt-5 max-w-4xl font-display text-4xl font-extrabold leading-tight text-navy md:text-6xl">
+          <h1 className="mt-5 max-w-4xl font-display text-4xl font-extrabold leading-tight text-navy">
             Your health information should move securely with you.
           </h1>
 

@@ -12,6 +12,7 @@ export type NotificationType =
   | "appointment_reminder"
   | "prescription_issued"
   | "medical_record_added"
+  | "payment_updated"
   | "general";
 
 export interface NotificationDocument
@@ -45,6 +46,7 @@ const notificationSchema =
           "appointment_reminder",
           "prescription_issued",
           "medical_record_added",
+          "payment_updated",
           "general",
         ],
         required: true,

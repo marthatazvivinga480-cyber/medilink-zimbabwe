@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   CheckCircle2,
@@ -18,9 +18,10 @@ type VerifiedMedicine = {
 
 type VerificationResponse = {
   valid: boolean;
+  detailsAvailable: boolean;
   prescription: {
     prescriptionCode: string;
-    doctor: string;
+    doctor?: string;
     medicines: VerifiedMedicine[];
     instructions?: string;
     issuedAt?: string;
@@ -119,21 +120,21 @@ export default function Verification() {
           <p className="mx-auto mt-4 max-w-xl leading-7 text-[#647583]">
             Enter the prescription code to confirm
             whether it is valid. Only
-            dispensing-relevant information is
-            shown.
+            authorized pharmacy staff and the treating doctor or patient can view medicine details.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-3xl px-5 py-12">
         <div className="card p-6 md:p-8">
-          <label className="block text-sm font-semibold text-navy">
+          <label htmlFor="prescription-code" className="block text-sm font-semibold text-navy">
             Prescription code
           </label>
 
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <input
-              className="field flex-1"
+              id="prescription-code"
+              className="field min-w-0 flex-1"
               placeholder="RX-MZ-2026-009812"
               value={code}
               onChange={(event) =>
@@ -246,7 +247,10 @@ export default function Verification() {
                 </div>
               </div>
 
-              <div className="mt-8">
+              {!data.detailsAvailable && <p role="status" className="mt-6 rounded-xl bg-slate-50 p-4 text-sm">
+                Medicine details are private. <Link className="font-semibold text-teal-dark underline" to="/login">Sign in</Link> with an authorized account, then verify again.
+              </p>}
+              {data.detailsAvailable && <div className="mt-8">
                 <h2 className="font-display text-xl font-bold text-navy">
                   Medicines
                 </h2>
@@ -277,7 +281,7 @@ export default function Verification() {
                     )
                   )}
                 </div>
-              </div>
+              </div>}
 
               {data.prescription.instructions && (
                 <div className="mt-8 rounded-xl bg-[#F5FAFB] p-5">

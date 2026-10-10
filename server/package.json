@@ -7,11 +7,14 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/seed.ts",
-    "seed:doctors": "tsx src/seedDoctors.ts",
+  "seed:doctors": "tsx src/seedDoctors.ts",
     "merge:tendai": "tsx src/mergeDuplicateTendai.ts",
     "cleanup:doctors": "tsx src/cleanupDoctorData.ts",
     "cleanup:patient-demo": "tsx src/cleanupPatientDemoData.ts",
-    "reset:doctor-password": "tsx src/resetDoctorPassword.ts"
+    "reset:doctor-password": "tsx src/resetDoctorPassword.ts",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:integration": "npm run build && node --test tests/integration/*.test.mjs",
+    "dev:test": "npm run build && node scripts/dev-test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -29,6 +32,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.5.2",
+    "mongodb-memory-server": "^11.3.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }

@@ -1,3 +1,6 @@
+import ContextualError from "../components/ui/ContextualError";
+import OptimizedImage from "../components/OptimizedImage";
+import ConsultationFee from "../components/ConsultationFee";
 import {
   useEffect,
   useState,
@@ -80,7 +83,11 @@ function DoctorPhoto({
   }
 
   return (
-    <img
+    <OptimizedImage
+      decoding="async"
+      loading="lazy"
+      width={440}
+      height={550}
       src={doctor.photoUrl}
       alt={
         doctor.userId?.name ||
@@ -256,7 +263,7 @@ export default function Doctors() {
             Find care
           </p>
 
-          <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-tight text-navy md:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-tight text-navy">
             Find the right doctor for your
             care.
           </h1>
@@ -339,9 +346,7 @@ export default function Doctors() {
         </div>
 
         {error && (
-          <div className="mt-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
+          <ContextualError message={error} />
         )}
 
         {loading ? (
@@ -429,6 +434,7 @@ export default function Doctors() {
                       }
                     </h3>
 
+                    <ConsultationFee doctor={doctor} /><p className="text-xs text-slate-600">Choose a profile to check live appointment times.</p>
                     <div className="mt-5 space-y-3 text-sm text-[#647583]">
                       {doctor.facility && (
                         <p className="flex items-start gap-2">

@@ -6,7 +6,6 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Appointment",
       required: true,
-      index: true,
     },
 
     patientId: {
@@ -169,6 +168,7 @@ const paymentSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    optimisticConcurrency: true,
   }
 );
 

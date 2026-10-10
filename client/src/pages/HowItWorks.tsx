@@ -44,7 +44,7 @@ export default function HowItWorks() {
           HOW MEDILINK WORKS
         </p>
 
-        <h1 className="mt-3 font-display text-4xl font-extrabold text-navy md:text-5xl">
+        <h1 className="mt-3 font-display text-4xl font-extrabold text-navy">
           From finding care to keeping your health history.
         </h1>
 

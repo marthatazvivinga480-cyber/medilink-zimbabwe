@@ -1,3 +1,5 @@
+import OptimizedImage from "../components/OptimizedImage";
+import LoadingState from "../components/ui/LoadingState";
 import {
   useEffect,
   useMemo,
@@ -794,26 +796,11 @@ export default function DoctorDashboard() {
       appointments,
     ]);
 
-  const filteredAppointments =
-    useMemo(() => {
-      if (
-        filter ===
-        "all"
-      ) {
-        return appointments;
-      }
-
-      return appointments.filter(
-        (
-          appointment
-        ) =>
-          appointment.status ===
-          filter
-      );
-    }, [
-      appointments,
-      filter,
-    ]);
+  const filteredAppointments = useMemo(() => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Harare", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const priority = (a: Appointment) => a.date === today && !["completed", "cancelled", "no-show"].includes(a.status) ? 0 : a.status === "pending" ? 1 : ["confirmed", "rescheduled"].includes(a.status) ? 2 : 3;
+    return appointments.filter(a => filter === "all" || a.status === filter).sort((a,b) => priority(a)-priority(b) || (a.date + a.startTime).localeCompare(b.date + b.startTime));
+  }, [appointments, filter]);
 
   const displayName =
     doctorProfile
@@ -1991,7 +1978,7 @@ async function completeConsultation() {
       <section className="flex flex-col justify-between gap-6 border-b border-[#E2EBEF] pb-7 md:flex-row md:items-center">
         <div className="flex items-center gap-4">
           {doctorProfile?.photoUrl ? (
-            <img
+            <OptimizedImage
               src={
                 doctorProfile.photoUrl
               }
@@ -2089,7 +2076,7 @@ async function completeConsultation() {
         </div>
       )}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
         <DashboardStat
           icon={
             <CalendarDays className="h-5 w-5" />
@@ -2303,14 +2290,14 @@ async function completeConsultation() {
           }
         />
       ) : (
-        <div className="mt-9 grid gap-8 lg:grid-cols-[minmax(0,1fr)_520px]">
+        <div className="mt-9 grid gap-8 xl:grid-cols-[minmax(0,1fr)_520px]">
           <section>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <CalendarDays className="h-5 w-5 text-teal" />
 
                 <h2 className="font-display text-xl font-bold text-navy">
-                  Appointments
+                  Schedule and requests
                 </h2>
               </div>
 
@@ -2356,10 +2343,7 @@ async function completeConsultation() {
 
             <div className="mt-4 grid gap-3">
               {loading ? (
-                <div className="card p-6 text-sm text-[#647583]">
-                  Loading
-                  appointments...
-                </div>
+                <LoadingState label="Loading appointments..." />
               ) : filteredAppointments.length ===
                 0 ? (
                 <div className="card flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
@@ -2710,6 +2694,7 @@ async function completeConsultation() {
               </div>
 
               <div className="p-6">
+                <p className="mb-5 border-b border-slate-200 pb-4 text-sm text-slate-600">Review patient context → document findings → treatment and prescription → follow-up → complete consultation</p>
                 <section className="mb-7 rounded-2xl border border-[#DCE8EB] bg-[#F8FBFC] p-5">
                   <div className="flex items-start gap-3">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EAF8FA] text-teal">
@@ -2740,10 +2725,7 @@ async function completeConsultation() {
                   </div>
 
                   {clinicalLoading ? (
-                    <div className="mt-5 rounded-xl border border-[#E2EBEF] bg-white p-4 text-sm text-[#647583]">
-                      Loading clinical
-                      information...
-                    </div>
+                    <LoadingState label="Loading clinical information..." />
                   ) : (
                     <div className="mt-5 space-y-5">
                       {clinicalMessage && (

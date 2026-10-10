@@ -4,12 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        teal: { DEFAULT: "#08A6B5", dark: "#078996" },
-        navy: { DEFAULT: "#0B2945", light: "#173B59" }
+        teal: { DEFAULT: "rgb(var(--color-teal-rgb) / <alpha-value>)", dark: "rgb(var(--color-teal-dark-rgb) / <alpha-value>)" },
+        navy: { DEFAULT: "rgb(var(--color-navy-rgb) / <alpha-value>)", light: "#173B59" }
       },
       fontFamily: {
-        display: ["Manrope", "sans-serif"],
-        sans: ["Inter", "sans-serif"]
+        display: ["Inter", "Segoe UI", "system-ui", "sans-serif"],
+        sans: ["Inter", "Segoe UI", "system-ui", "sans-serif"]
       }
     }
   },

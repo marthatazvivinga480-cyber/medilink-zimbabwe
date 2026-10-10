@@ -1,3 +1,6 @@
+import ListSearch from "../components/ui/ListSearch";
+import LoadingState from "../components/ui/LoadingState";
+import { statusClasses as sharedStatusClasses } from "../components/ui/status";
 import {
   AlertCircle,
   ArrowLeft,
@@ -17,7 +20,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 
 import { api } from "../services/api";
 
@@ -160,7 +163,7 @@ const paymentMethods: PaymentMethodOption[] = [
     value: "bank_transfer",
     label: "Bank transfer",
     description:
-      "Pay using a supported bank transfer.",
+      "Prepare a bank transfer request.",
   },
   {
     value: "zipit",
@@ -305,32 +308,7 @@ function statusLabel(
   return labels[status];
 }
 
-function statusClasses(
-  status: PaymentStatus
-) {
-  switch (status) {
-    case "paid":
-    case "medical_aid_approved":
-      return "border-[#BFE6D8] bg-[#ECF9F4] text-[#1A7258]";
-
-    case "pending":
-    case "medical_aid_pending":
-      return "border-[#F2D8A7] bg-[#FFF8E8] text-[#946313]";
-
-    case "partially_paid":
-      return "border-[#C9DDF5] bg-[#F0F6FD] text-[#315F90]";
-
-    case "failed":
-    case "medical_aid_declined":
-      return "border-[#F0C4C4] bg-[#FFF2F2] text-[#A43A3A]";
-
-    case "refunded":
-      return "border-[#D9D4EF] bg-[#F6F4FC] text-[#65569B]";
-
-    default:
-      return "border-[#DCE5EA] bg-[#F5F8FA] text-[#60727F]";
-  }
-}
+const statusClasses = sharedStatusClasses;
 
 function methodIcon(
   method: PaymentMethod
@@ -354,6 +332,8 @@ function methodIcon(
 }
 
 export default function Payments() {
+  const [search, setSearch] = useState("");
+  const [params] = useSearchParams();
   const [payments, setPayments] =
     useState<Payment[]>([]);
 
@@ -423,10 +403,7 @@ export default function Payments() {
           []
       );
     } catch (requestError) {
-      console.error(
-        "Could not load payments:",
-        requestError
-      );
+      // Do not log financial response payloads in the browser.
 
       setError(
         "We could not load your payments. Please try again."
@@ -481,6 +458,18 @@ export default function Payments() {
       paidAppointmentIds,
     ]);
 
+  const requestedAppointmentId = params.get("appointment");
+  useEffect(() => {
+    if (loading) return;
+    setSelectedAppointmentId(current => {
+      if (eligibleAppointments.some(appointment => appointment._id === current)) return current;
+      return eligibleAppointments.some(appointment => appointment._id === requestedAppointmentId)
+        ? requestedAppointmentId! : "";
+    });
+  }, [loading, eligibleAppointments, requestedAppointmentId]);
+
+  const linkedPayment = payments.find(payment => getAppointmentId(payment.appointmentId) === params.get("appointment"));
+  useEffect(() => { if (!loading && linkedPayment) document.getElementById("payment-" + getAppointmentId(linkedPayment.appointmentId))?.scrollIntoView({ block: "center" }); }, [loading, linkedPayment]);
   const selectedAppointment =
     useMemo(() => {
       return eligibleAppointments.find(
@@ -493,32 +482,18 @@ export default function Payments() {
       selectedAppointmentId,
     ]);
 
-  const totalPaid =
-    useMemo(() => {
-      return payments.reduce(
-        (sum, payment) =>
-          sum +
-          Number(
-            payment.amountPaid || 0
-          ) +
-          Number(
-            payment.amountCovered || 0
-          ),
-        0
-      );
-    }, [payments]);
-
-  const outstandingBalance =
-    useMemo(() => {
-      return payments.reduce(
-        (sum, payment) =>
-          sum +
-          Number(
-            payment.patientBalance || 0
-          ),
-        0
-      );
-    }, [payments]);
+  const totalsByCurrency = useMemo(() => {
+    const totals = new Map<string, { paid: number; balance: number; refunded: number }>();
+    for (const payment of payments) {
+      const total = totals.get(payment.currency) || { paid: 0, balance: 0, refunded: 0 };
+      total.paid += Number(payment.amountPaid || 0) + Number(payment.amountCovered || 0) - Number(payment.refundedAmount || 0);
+      total.refunded += Number(payment.refundedAmount || 0);
+      total.balance += Number(payment.patientBalance || 0);
+      totals.set(payment.currency, total);
+    }
+    return [...totals.entries()];
+  }, [payments]);
+  const visiblePayments = payments.filter(payment => [getDoctorName(payment.doctorId), payment.status.replaceAll("_", " "), paymentMethodLabel(payment.method), payment.transactionReference, typeof payment.appointmentId === "string" ? "" : payment.appointmentId?.date].join(" ").toLowerCase().includes(search.trim().toLowerCase()));
 
   const pendingCount =
     payments.filter((payment) =>
@@ -533,7 +508,7 @@ export default function Payments() {
     setError("");
     setSuccess("");
 
-    if (!selectedAppointmentId) {
+    if (!selectedAppointment || loading || refreshing) {
       setError(
         "Choose an appointment before creating a payment."
       );
@@ -571,7 +546,7 @@ export default function Payments() {
         };
       } = {
         appointmentId:
-          selectedAppointmentId,
+          selectedAppointment._id,
         method:
           selectedMethod,
       };
@@ -658,10 +633,6 @@ export default function Payments() {
     } catch (
       requestError: unknown
     ) {
-      console.error(
-        "Could not create payment:",
-        requestError
-      );
 
       let message =
         "We could not create the payment. Please try again.";
@@ -696,23 +667,7 @@ export default function Payments() {
     }
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#F5FAFB]">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="card p-8">
-            <div className="flex items-center gap-3 text-sm text-[#647683]">
-              <RefreshCw
-                size={18}
-                className="animate-spin"
-              />
-              Loading your payments...
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  if (loading) return <LoadingState label="Loading your payments" />;
 
   return (
     <main className="min-h-screen bg-[#F5FAFB]">
@@ -817,12 +772,11 @@ export default function Payments() {
             </div>
 
             <p className="text-sm text-[#71818C]">
-              Paid / covered
+              Net paid / covered
             </p>
 
             <p className="mt-1 text-2xl font-bold text-navy">
-              USD{" "}
-              {totalPaid.toFixed(2)}
+              {totalsByCurrency.length ? totalsByCurrency.map(([currency, total]) => <span className="block" key={currency}>{formatMoney(total.paid, currency)}<span className="block text-xs font-normal text-slate-600">Refunded: {formatMoney(total.refunded, currency)}</span></span>) : "No paid amounts"}
             </p>
           </div>
 
@@ -836,10 +790,7 @@ export default function Payments() {
             </p>
 
             <p className="mt-1 text-2xl font-bold text-navy">
-              USD{" "}
-              {outstandingBalance.toFixed(
-                2
-              )}
+              {totalsByCurrency.length ? totalsByCurrency.map(([currency, total]) => <span className="block" key={currency}>{formatMoney(total.balance, currency)}</span>) : "No outstanding amounts"}
             </p>
           </div>
         </section>
@@ -851,8 +802,9 @@ export default function Payments() {
                 New payment
               </p>
 
+              {linkedPayment && <p className="mt-3 text-sm font-semibold text-teal-dark">This appointment already has a payment request or claim. Review its activity below.</p>}
               <h2 className="mt-1 text-xl font-bold text-navy">
-                Pay for an appointment
+                Arrange appointment payment
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-[#71818C]">
@@ -1006,11 +958,11 @@ export default function Payments() {
 
               <div>
                 <p className="mb-3 text-sm font-semibold text-navy">
-                  Payment method
+                  Pay directly or use medical aid
                 </p>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {paymentMethods.map(
+                  {paymentMethods.filter(method => method.value !== "medical_aid").map(
                     (method) => {
                       const Icon =
                         methodIcon(
@@ -1072,6 +1024,7 @@ export default function Payments() {
                 </div>
               </div>
 
+              <section className="rounded-xl border border-slate-200 p-4"><h3 className="font-semibold">Use medical aid</h3><p className="mt-2 text-sm text-slate-600">Submit a claim for review. Coverage and your contribution depend on approval.</p><button type="button" aria-pressed={selectedMethod === "medical_aid"} onClick={() => setSelectedMethod("medical_aid")} className="btn-secondary mt-3">{selectedMethod === "medical_aid" ? "Medical aid selected" : "Use medical aid instead"}</button></section>
               {selectedMethod ===
                 "medical_aid" && (
                 <div className="space-y-4 rounded-2xl border border-[#DDE8EC] bg-[#F8FBFC] p-4">
@@ -1170,7 +1123,7 @@ export default function Payments() {
                 }
                 disabled={
                   submitting ||
-                  !selectedAppointmentId ||
+                  !selectedAppointment || loading || refreshing ||
                   (selectedAppointment &&
                     typeof selectedAppointment.doctorId !==
                       "string" &&
@@ -1227,7 +1180,8 @@ export default function Payments() {
               </p>
             </div>
 
-            {payments.length === 0 ? (
+            <div className="px-5"><ListSearch value={search} onChange={setSearch} label="Search payment activity" /></div>
+            {visiblePayments.length === 0 ? (
               <div className="flex min-h-[360px] flex-col items-center justify-center px-6 py-12 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECF8FA] text-teal">
                   <ReceiptText
@@ -1236,7 +1190,7 @@ export default function Payments() {
                 </div>
 
                 <h3 className="mt-5 text-lg font-bold text-navy">
-                  No payments yet
+                  {search ? "No matching payments" : "No payments yet"}
                 </h3>
 
                 <p className="mt-2 max-w-sm text-sm leading-6 text-[#71818C]">
@@ -1247,7 +1201,7 @@ export default function Payments() {
               </div>
             ) : (
               <div className="divide-y divide-[#E7EEF1]">
-                {payments.map(
+                {visiblePayments.map(
                   (payment) => {
                     const appointment =
                       typeof payment.appointmentId ===
@@ -1265,6 +1219,7 @@ export default function Payments() {
                         key={
                           payment._id
                         }
+                        id={"payment-" + getAppointmentId(payment.appointmentId)}
                         className="p-5 sm:p-6"
                       >
                         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -1351,6 +1306,10 @@ export default function Payments() {
                             </p>
                           </div>
 
+                          <div className="rounded-xl bg-[#F7FAFB] p-3">
+                            <p className="text-xs text-[#7A8C96]">Patient paid / insurer covered / refunded</p>
+                            <p className="mt-1 text-sm font-semibold text-navy">{formatMoney(payment.amountPaid || 0, payment.currency)} / {formatMoney(payment.amountCovered || 0, payment.currency)} / {formatMoney(payment.refundedAmount || 0, payment.currency)}</p>
+                          </div>
                           <div className="rounded-xl bg-[#F7FAFB] p-3">
                             <p className="text-xs text-[#7A8C96]">
                               Balance

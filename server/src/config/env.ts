@@ -7,3 +7,8 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || "development_only_change_me",
   clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
 };
+
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "development_only_change_me" || process.env.JWT_SECRET.length < 32) throw new Error("Production requires an explicit JWT_SECRET of at least 32 characters.");
+  if (!process.env.MONGODB_URI || !process.env.CLIENT_ORIGIN) throw new Error("Production requires explicit MONGODB_URI and CLIENT_ORIGIN.");
+}

@@ -37,6 +37,8 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    sessionVersion: { type: Number, default: 0, min: 0 },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -46,6 +48,17 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Invalidate previously issued sessions on security-sensitive account changes.
+// A database increment also covers concurrent password-reset saves.
+userSchema.pre("save", function () {
+  if (!this.isNew && (
+    this.isModified("passwordHash") || this.isModified("role") ||
+    (this.isModified("isActive") && this.isActive === false)
+  )) {
+    this.$inc("sessionVersion", 1);
+  }
+});
 
 export const User = mongoose.model(
   "User",
