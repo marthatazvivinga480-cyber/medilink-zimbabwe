@@ -1384,7 +1384,9 @@ export default function MyAppointments() {
                             </div>
                           </div>
                         )}
-                        <AppointmentPayment appointment={appointment} />
+                        <div className="px-5 pb-3 empty:hidden md:px-6">
+                          <AppointmentPayment appointment={appointment} />
+                        </div>
                       </article>
                     );
                   }

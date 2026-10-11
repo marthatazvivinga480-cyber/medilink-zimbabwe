@@ -1,15 +1,84 @@
+import mongoose from "mongoose";
 import { Router } from "express";
 import { z } from "zod";
 
 import { Doctor } from "../models/Doctor.js";
 import { User } from "../models/User.js";
 import { DoctorAvailability } from "../models/DoctorAvailability.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+
+import { DoctorSchedule } from "../models/DoctorSchedule.js";
 import {
-  requireAuth,
-  requireRole,
-} from "../middleware/auth.js";
+  ensureDoctorRollingAvailability,
+  bookingDates,
+  replaceAvailabilitySlots,
+} from "../services/doctorAvailabilityService.js";
+import {
+  scheduleSchema,
+  defaultSchedule,
+} from "../services/doctorScheduleValidation.js";
 
 const router = Router();
+
+router.get(
+  "/me/schedule",
+  requireAuth,
+  requireRole("doctor"),
+  async (req, res, next) => {
+    try {
+      const doctor = await Doctor.findOne({ userId: req.user!.id });
+      if (!doctor)
+        return res.status(404).json({ message: "Doctor profile not found." });
+      const schedule = await DoctorSchedule.findOne({
+        doctorId: doctor._id,
+      }).lean();
+      return res.json({ schedule: schedule ?? defaultSchedule() });
+    } catch (error) {
+      if (
+        error instanceof mongoose.mongo.MongoServerError &&
+        error.code === 11000
+      )
+        return res
+          .status(409)
+          .json({
+            message: "Schedule changed while saving. Reload and try again.",
+          });
+      next(error);
+    }
+  },
+);
+
+router.put(
+  "/me/schedule",
+  requireAuth,
+  requireRole("doctor"),
+  async (req, res, next) => {
+    try {
+      const doctor = await Doctor.findOne({ userId: req.user!.id });
+      if (!doctor)
+        return res.status(404).json({ message: "Doctor profile not found." });
+      const data = scheduleSchema.parse(req.body);
+      const schedule = await DoctorSchedule.findOneAndUpdate(
+        { doctorId: doctor._id },
+        { $set: data },
+        { new: true, upsert: true, runValidators: true },
+      );
+      await ensureDoctorRollingAvailability(doctor._id);
+      return res.json({ schedule });
+    } catch (error) {
+      if (
+        error instanceof mongoose.mongo.MongoServerError &&
+        error.code === 11000
+      )
+        return res
+          .status(409)
+          .json({
+            message: "Schedule changed while saving. Reload and try again.",
+          });
+      next(error);
+    }
+  },
+);
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,9 +120,7 @@ type AvailabilitySlotInput = z.infer<
 >;
 
 function isPastDate(date: string) {
-  const today = new Date()
-    .toISOString()
-    .slice(0, 10);
+  const today = bookingDates(1)[0];
 
   return date < today;
 }
@@ -390,16 +457,17 @@ router.get(
           });
       }
 
+      await ensureDoctorRollingAvailability(doctor._id);
+
       const fromDate =
         typeof req.query.from ===
         "string"
           ? req.query.from
-          : new Date()
-              .toISOString()
-              .slice(0, 10);
+          : bookingDates(1)[0];
 
       const availability =
         await DoctorAvailability.find({
+          "slots.0": { $exists: true },
           doctorId:
             doctor._id,
 
@@ -478,7 +546,7 @@ router.post(
             date:
               data.date,
           }
-        );
+        ).lean();
 
       const existingBookedSlots =
         existingAvailability
@@ -521,6 +589,7 @@ router.post(
                 startTime,
                 endTime,
                 isBooked: true,
+                claimToken: slot.claimToken,
               },
             ];
           }
@@ -567,30 +636,14 @@ router.post(
           });
       }
 
-      const availability =
-        await DoctorAvailability.findOneAndUpdate(
-          {
-            doctorId:
-              doctor._id,
-            date:
-              data.date,
-          },
-          {
-            doctorId:
-              doctor._id,
-
-            date:
-              data.date,
-
-            slots:
-              finalSlots,
-          },
-          {
-            new: true,
-            upsert: true,
-            runValidators: true,
-          }
-        );
+      let availability;
+      if (existingAvailability) {
+        const result = await replaceAvailabilitySlots(existingAvailability._id, existingAvailability.slots, finalSlots, true);
+        if (!result.matchedCount) return res.status(409).json({ message: "Availability changed while saving. Reload and try again." });
+        availability = await DoctorAvailability.findById(existingAvailability._id);
+      } else {
+        availability = await DoctorAvailability.create({ doctorId: doctor._id, date: data.date, slots: finalSlots, manualOverride: true });
+      }
 
       return res
         .status(
@@ -602,6 +655,7 @@ router.post(
           availability,
         });
     } catch (error) {
+      if (error instanceof mongoose.mongo.MongoServerError && error.code === 11000) return res.status(409).json({ message: "Availability changed while saving. Reload and try again." });
       next(error);
     }
   }
@@ -655,7 +709,7 @@ router.delete(
               doctor._id,
             date,
           }
-        );
+        ).lean();
 
       if (!availability) {
         return res
@@ -681,12 +735,9 @@ router.delete(
           });
       }
 
-      await DoctorAvailability.deleteOne(
-        {
-          _id:
-            availability._id,
-        }
-      );
+      // Retain an empty manual override so recurring refresh does not recreate a removed date.
+      const result = await replaceAvailabilitySlots(availability._id, availability.slots, [], true);
+      if (!result.matchedCount) return res.status(409).json({ message: "Availability changed while removing it. Reload and try again." });
 
       return res.json({
         message:
@@ -702,16 +753,17 @@ router.get(
   "/:id/availability",
   async (req, res, next) => {
     try {
+      await ensureDoctorRollingAvailability(String(req.params.id));
+
       const fromDate =
         typeof req.query.from ===
         "string"
           ? req.query.from
-          : new Date()
-              .toISOString()
-              .slice(0, 10);
+          : bookingDates(1)[0];
 
       const availability =
         await DoctorAvailability.find({
+          "slots.0": { $exists: true },
           doctorId:
             req.params.id,
 

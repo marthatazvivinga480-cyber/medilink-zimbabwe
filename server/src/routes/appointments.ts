@@ -1,5 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
+import { ensureDoctorRollingAvailability } from "../services/doctorAvailabilityService.js";
 import { z } from "zod";
 
 import { Appointment } from "../models/Appointment.js";
@@ -171,32 +173,30 @@ async function releaseAppointmentSlot(
   startTime: string,
   endTime: string
 ) {
-  const availability =
-    await DoctorAvailability.findOne({
-      doctorId,
-      date,
-    });
+  await DoctorAvailability.updateOne(
+    { doctorId, date },
+    { $set: { "slots.$[slot].isBooked": false }, $unset: { "slots.$[slot].claimToken": "" } },
+    { arrayFilters: [{ "slot.startTime": startTime, "slot.endTime": endTime }] }
+  );
+  await ensureDoctorRollingAvailability(doctorId);
 
-  if (!availability) {
-    return;
-  }
+}
 
-  const slot =
-    availability.slots.find(
-      (slot) =>
-        slot.startTime ===
-          startTime &&
-        slot.endTime ===
-          endTime
-    );
+async function claimSlot(doctorId: mongoose.Types.ObjectId, date: string, startTime: string, endTime: string) {
+  const token = randomUUID();
+  const result = await DoctorAvailability.updateOne(
+    { doctorId, date, slots: { $elemMatch: { startTime, endTime, isBooked: false } } },
+    { $set: { "slots.$.isBooked": true, "slots.$.claimToken": token } }
+  );
+  return result.matchedCount ? token : null;
+}
 
-  if (!slot) {
-    return;
-  }
-
-  slot.isBooked = false;
-
-  await availability.save();
+async function undoClaim(doctorId: mongoose.Types.ObjectId, date: string, token: string) {
+  await DoctorAvailability.updateOne(
+    { doctorId, date, "slots.claimToken": token },
+    { $set: { "slots.$.isBooked": false }, $unset: { "slots.$.claimToken": "" } }
+  );
+  await ensureDoctorRollingAvailability(doctorId);
 }
 
 /**
@@ -288,6 +288,8 @@ router.post(
           });
       }
 
+      await ensureDoctorRollingAvailability(doctor._id);
+
       const availability =
         await DoctorAvailability.findOne({
           doctorId:
@@ -362,20 +364,15 @@ router.post(
           });
       }
 
-      const appointment =
-        await Appointment.create({
-          ...data,
-
-          patientId:
-            patient._id,
-
-          status:
-            "pending",
-        });
-
-      slot.isBooked = true;
-
-      await availability.save();
+      const claim = await claimSlot(doctor._id, data.date, data.startTime, data.endTime);
+      if (!claim) return res.status(409).json({ message: "That appointment slot is no longer available." });
+      let appointment;
+      try {
+        appointment = await Appointment.create({ ...data, patientId: patient._id, status: "pending" });
+      } catch (error) {
+        await undoClaim(doctor._id, data.date, claim);
+        throw error;
+      }
 
       await createNotificationSafely(
         {
@@ -402,6 +399,7 @@ router.post(
           appointment,
         });
     } catch (err: any) {
+      if (err instanceof mongoose.Error.VersionError) return res.status(409).json({ message: "Appointment changed. Reload and try again." });
       if (
         err?.code ===
         11000
@@ -524,6 +522,7 @@ router.get(
         appointments: [],
       });
     } catch (err) {
+      if (err instanceof mongoose.Error.VersionError) return res.status(409).json({ message: "Appointment changed. Reload and try again." });
       next(err);
     }
   }
@@ -685,6 +684,8 @@ router.patch(
           });
       }
 
+      await ensureDoctorRollingAvailability(doctor._id);
+
       const newAvailability =
         await DoctorAvailability.findOne({
           doctorId:
@@ -775,9 +776,8 @@ router.patch(
       const oldEndTime =
         appointment.endTime;
 
-      newSlot.isBooked = true;
-
-      await newAvailability.save();
+      const claim = await claimSlot(doctor._id, data.date, data.startTime, data.endTime);
+      if (!claim) return res.status(409).json({ message: "The selected time is no longer available." });
 
       try {
         appointment.date =
@@ -794,10 +794,7 @@ router.patch(
 
         await appointment.save();
       } catch (error) {
-        newSlot.isBooked =
-          false;
-
-        await newAvailability.save();
+        await undoClaim(doctor._id, data.date, claim);
 
         throw error;
       }
@@ -852,6 +849,7 @@ router.patch(
           populatedAppointment,
       });
     } catch (err: any) {
+      if (err instanceof mongoose.Error.VersionError) return res.status(409).json({ message: "Appointment changed. Reload and try again." });
       if (
         err?.code ===
         11000
@@ -1242,6 +1240,7 @@ router.patch(
         appointment,
       });
     } catch (err) {
+      if (err instanceof mongoose.Error.VersionError) return res.status(409).json({ message: "Appointment changed. Reload and try again." });
       next(err);
     }
   }

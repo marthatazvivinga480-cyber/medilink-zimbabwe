@@ -2211,6 +2211,8 @@ async function completeConsultation() {
 
       {dashboardView ===
         "availability" ? (
+        <>
+        <RecurringScheduleManager onSaved={loadAvailability} />
         <AvailabilityManager
           availability={
             availability
@@ -2270,6 +2272,7 @@ async function completeConsultation() {
             deleteAvailability
           }
         />
+        </>
       ) : dashboardView ===
         "profile" ? (
         <DoctorProfileManager
@@ -4217,5 +4220,367 @@ function DashboardStat({
         {value}
       </p>
     </div>
+  );
+}
+
+
+type ScheduleDay = {
+  dayOfWeek: number;
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  breaks: { startTime: string; endTime: string }[];
+};
+type RecurringSchedule = {
+  slotDurationMinutes: number;
+  bookingWindowDays: number;
+  workingDays: ScheduleDay[];
+  blockedDates: string[];
+};
+const weekdays = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function RecurringScheduleManager({
+  onSaved,
+}: {
+  onSaved: () => Promise<void>;
+}) {
+  const [schedule, setSchedule] = useState<RecurringSchedule | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [blockedDate, setBlockedDate] = useState("");
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError("");
+    api
+      .get("/doctors/me/schedule")
+      .then((response) => {
+        if (!active) return;
+        const loaded: RecurringSchedule = response.data.schedule;
+        setSchedule({
+          ...loaded,
+          workingDays: weekdays.map(
+            (_, dayOfWeek) =>
+              loaded.workingDays.find((day) => day.dayOfWeek === dayOfWeek) ?? {
+                dayOfWeek,
+                enabled: false,
+                startTime: "08:00",
+                endTime: "16:00",
+                breaks: [],
+              },
+          ),
+        });
+      })
+      .catch(() => {
+        if (active) setError("Weekly schedule could not be loaded.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [reload]);
+  function changeDay(index: number, patch: Partial<ScheduleDay>) {
+    setSchedule(
+      (current) =>
+        current && {
+          ...current,
+          workingDays: current.workingDays.map((day, i) =>
+            i === index ? { ...day, ...patch } : day,
+          ),
+        },
+    );
+  }
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!schedule) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await api.put("/doctors/me/schedule", schedule);
+      setSchedule(response.data.schedule);
+      await onSaved();
+      setMessage("Weekly schedule saved and booking availability refreshed.");
+    } catch (error: unknown) {
+      const response = error as {
+        response?: {
+          data?: { message?: string; errors?: { message?: string }[] };
+        };
+      };
+      setError(
+        response.response?.data?.errors
+          ?.map((issue) => issue.message)
+          .join(" ") ||
+          response.response?.data?.message ||
+          "Schedule could not be saved. Check working hours and breaks, then try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <section className="card mt-9 p-6 sm:p-7">
+      <h2 className="font-display text-lg font-bold text-navy">
+        Recurring weekly schedule
+      </h2>
+      <p className="mt-2 text-sm text-[#647583]">
+        Your recurring schedule automatically keeps the next{" "}
+        {schedule?.bookingWindowDays ?? 30} days bookable. All days start
+        disabled until you choose and save your hours. Date-specific edits take
+        precedence; booked appointments are preserved.
+      </p>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" className="mt-3 text-sm text-teal">
+          {message}
+        </p>
+      )}
+      {!schedule ? (
+        <div className="mt-4">
+          <p className="text-sm">
+            {error ? "Schedule unavailable." : "Loading weekly schedule..."}
+          </p>
+          {error && (
+            <button
+              className="btn-secondary mt-3"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      ) : (
+        <form onSubmit={save} className="mt-5 space-y-4">
+          <fieldset disabled={saving} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-navy">
+                Appointment duration (minutes)
+                <input
+                  required
+                  type="number"
+                  min={15}
+                  max={180}
+                  step={1}
+                  className="field mt-2"
+                  value={schedule.slotDurationMinutes}
+                  onChange={(e) =>
+                    setSchedule({
+                      ...schedule,
+                      slotDurationMinutes: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Booking window (days)
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={90}
+                  step={1}
+                  className="field mt-2"
+                  value={schedule.bookingWindowDays}
+                  onChange={(e) =>
+                    setSchedule({
+                      ...schedule,
+                      bookingWindowDays: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+            </div>
+            <div className="divide-y divide-[#E2EBEF]">
+              {schedule.workingDays.map((day, index) => (
+                <div key={day.dayOfWeek} className="py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex w-32 items-center gap-2 text-sm font-semibold text-navy">
+                      <input
+                        type="checkbox"
+                        className="accent-teal"
+                        checked={day.enabled}
+                        onChange={(e) =>
+                          changeDay(index, { enabled: e.target.checked })
+                        }
+                      />
+                      {weekdays[day.dayOfWeek]}
+                    </label>
+                    <label className="text-xs text-[#647583]">
+                      Start
+                      <input
+                        aria-label={`${weekdays[day.dayOfWeek]} start`}
+                        required
+                        type="time"
+                        className="field mt-1"
+                        disabled={!day.enabled}
+                        value={day.startTime}
+                        onChange={(e) =>
+                          changeDay(index, { startTime: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="text-xs text-[#647583]">
+                      End
+                      <input
+                        aria-label={`${weekdays[day.dayOfWeek]} end`}
+                        required
+                        type="time"
+                        className="field mt-1"
+                        disabled={!day.enabled}
+                        value={day.endTime}
+                        onChange={(e) =>
+                          changeDay(index, { endTime: e.target.value })
+                        }
+                      />
+                    </label>
+                    {day.enabled && (
+                      <button
+                        type="button"
+                        className="text-sm font-semibold text-teal"
+                        onClick={() =>
+                          changeDay(index, {
+                            breaks: [
+                              ...day.breaks,
+                              {
+                                startTime: day.startTime,
+                                endTime: day.endTime,
+                              },
+                            ],
+                          })
+                        }
+                      >
+                        Add break
+                      </button>
+                    )}
+                  </div>
+                  {day.enabled &&
+                    day.breaks.map((b, i) => (
+                      <div
+                        key={i}
+                        className="mt-2 flex flex-wrap items-center gap-2 sm:ml-36"
+                      >
+                        <span className="text-xs text-[#647583]">
+                          Break {i + 1}
+                        </span>
+                        <input
+                          aria-label={`${weekdays[day.dayOfWeek]} break ${i + 1} start`}
+                          required
+                          type="time"
+                          className="field w-auto"
+                          value={b.startTime}
+                          onChange={(e) =>
+                            changeDay(index, {
+                              breaks: day.breaks.map((item, j) =>
+                                j === i
+                                  ? { ...item, startTime: e.target.value }
+                                  : item,
+                              ),
+                            })
+                          }
+                        />
+                        <input
+                          aria-label={`${weekdays[day.dayOfWeek]} break ${i + 1} end`}
+                          required
+                          type="time"
+                          className="field w-auto"
+                          value={b.endTime}
+                          onChange={(e) =>
+                            changeDay(index, {
+                              breaks: day.breaks.map((item, j) =>
+                                j === i
+                                  ? { ...item, endTime: e.target.value }
+                                  : item,
+                              ),
+                            })
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="text-sm text-red-600"
+                          onClick={() =>
+                            changeDay(index, {
+                              breaks: day.breaks.filter((_, j) => j !== i),
+                            })
+                          }
+                        >
+                          Remove break
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-[#E2EBEF] pt-4">
+              <label
+                className="block text-sm font-semibold text-navy"
+                htmlFor="schedule-time-off"
+              >
+                Blocked dates / time off
+              </label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <input
+                  id="schedule-time-off"
+                  type="date"
+                  className="field w-auto"
+                  value={blockedDate}
+                  onChange={(e) => setBlockedDate(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={!blockedDate}
+                  onClick={() => {
+                    setSchedule({
+                      ...schedule,
+                      blockedDates: [
+                        ...new Set([...schedule.blockedDates, blockedDate]),
+                      ].sort(),
+                    });
+                    setBlockedDate("");
+                  }}
+                >
+                  Add date
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {schedule.blockedDates.map((date) => (
+                  <button
+                    key={date}
+                    type="button"
+                    aria-label={`Remove blocked date ${date}`}
+                    className="rounded-lg border border-[#E2EBEF] px-3 py-2 text-sm"
+                    onClick={() =>
+                      setSchedule({
+                        ...schedule,
+                        blockedDates: schedule.blockedDates.filter(
+                          (d) => d !== date,
+                        ),
+                      })
+                    }
+                  >
+                    {date} �
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button type="submit" className="btn-primary">
+              {saving ? "Saving schedule..." : "Save recurring schedule"}
+            </button>
+          </fieldset>
+        </form>
+      )}
+    </section>
   );
 }
