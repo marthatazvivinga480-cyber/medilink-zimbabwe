@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Mail, MapPin, Phone } from "lucide-react";
+import FilterSelect from "../components/ui/FilterSelect";
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [topic, setTopic] = useState("");
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,17 +106,23 @@ export default function Contact() {
                 />
               </label>
 
-              <label className="text-sm font-semibold text-navy">
-                Topic
+              <div className="text-sm font-semibold text-navy">
+                <span>Topic</span>
 
-                <select className="field mt-2">
-                  <option>Patient support</option>
-                  <option>Healthcare provider onboarding</option>
-                  <option>Hospital partnership</option>
-                  <option>Technical support</option>
-                  <option>Other</option>
-                </select>
-              </label>
+                <div className="mt-2 font-normal">
+                  <FilterSelect
+                    value={topic}
+                    placeholder="Patient support"
+                    options={[
+                      "Healthcare provider onboarding",
+                      "Hospital partnership",
+                      "Technical support",
+                      "Other",
+                    ]}
+                    onChange={setTopic}
+                  />
+                </div>
+              </div>
 
               <label className="text-sm font-semibold text-navy">
                 Message
