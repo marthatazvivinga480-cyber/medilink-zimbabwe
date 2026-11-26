@@ -61,7 +61,7 @@ router.put(
       const schedule = await DoctorSchedule.findOneAndUpdate(
         { doctorId: doctor._id },
         { $set: data },
-        { new: true, upsert: true, runValidators: true },
+        { returnDocument: "after", upsert: true, runValidators: true },
       );
       await ensureDoctorRollingAvailability(doctor._id);
       return res.json({ schedule });
@@ -357,7 +357,7 @@ router.put(
               req.body.phone,
           },
           {
-            new: true,
+            returnDocument: "after",
           }
         ).select(
           "-passwordHash"
@@ -413,7 +413,7 @@ router.put(
               "",
           },
           {
-            new: true,
+            returnDocument: "after",
           }
         );
 

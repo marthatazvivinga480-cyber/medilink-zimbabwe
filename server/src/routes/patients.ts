@@ -265,7 +265,7 @@ router.put(
               data.phone.trim(),
           },
           {
-            new: true,
+            returnDocument: "after",
             runValidators: true,
           }
         ).select(
@@ -317,7 +317,7 @@ router.put(
             },
           },
           {
-            new: true,
+            returnDocument: "after",
             runValidators: true,
           }
         );
