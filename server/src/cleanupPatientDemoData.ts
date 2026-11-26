@@ -67,7 +67,7 @@ async function cleanupPatientDemoData() {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
